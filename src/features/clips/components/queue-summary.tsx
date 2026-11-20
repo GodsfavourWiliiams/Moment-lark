@@ -54,7 +54,7 @@ export function QueueSummary({
               Est. Render Load
             </span>
             <span className="font-code text-code-timecode">
-              {source.kind === "demo" ? "Sample footage" : "Device dependent"}
+              Device dependent
             </span>
           </div>
           <svg

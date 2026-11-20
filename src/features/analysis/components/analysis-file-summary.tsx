@@ -1,12 +1,18 @@
 import { Icon } from "@/components/ui";
+import { formatBytes } from "@/lib/clip-queue";
+import { durationLabel } from "@/lib/timecode";
 import type { SelectedVideo } from "@/types/studio";
-
+import type { MediaSource } from "@/types/editing";
 export function AnalysisFileSummary({
   video,
-  complete,
+  source,
+  reading,
+  running,
 }: {
   video: SelectedVideo;
-  complete: boolean;
+  source: MediaSource | null;
+  reading: boolean;
+  running: boolean;
 }) {
   return (
     <div className="flex flex-col items-start justify-between gap-4 rounded-xl bg-surface-container-low p-4 shadow-xl sm:flex-row sm:items-center">
@@ -15,43 +21,32 @@ export function AnalysisFileSummary({
           <Icon name="video" size={22} />
         </div>
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className={`size-2 shrink-0 rounded-full bg-primary-container ${!complete ? "motion-safe:animate-pulse" : ""}`}
-            />
-            <span className="text-label-sm tracking-wider text-primary-fixed uppercase">
-              {complete ? "Preview Complete" : "Pipeline Running"}
-            </span>
-          </div>
+          <span className="text-label-sm tracking-wider text-primary-fixed uppercase">
+            {reading
+              ? "Reading local file"
+              : running
+                ? "Pipeline Running"
+                : "Awaiting Analysis"}
+          </span>
           <p
-            className="truncate text-body-md font-medium text-on-surface"
+            className="truncate font-code text-code-timecode font-semibold text-primary"
             title={video.name}
           >
-            {complete ? "Selected:" : "Analyzing:"}{" "}
-            <span className="font-code text-code-timecode font-semibold text-primary">
-              {video.name}
-            </span>
+            {video.name}
           </p>
         </div>
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2 self-end rounded-lg bg-surface-container-lowest px-3 py-1.5 sm:self-auto">
-        <span className="font-code text-code-timecode text-on-surface-variant">
-          {video.source === "sample" ? "42:15" : "Local File"}
-        </span>
-        <span aria-hidden="true" className="text-outline">
-          •
-        </span>
-        <span className="rounded-sm bg-surface-container-high px-2 py-0.5 text-label-sm text-on-surface">
-          {video.source === "sample" ? "1080p FHD" : "UI Preview"}
-        </span>
-        <span aria-hidden="true" className="text-outline">
-          •
-        </span>
-        <span className="flex items-center gap-1 text-label-sm text-tertiary-fixed-dim">
-          <Icon name="bolt" size={14} />
-          WebGPU
-        </span>
+      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg bg-surface-container-lowest px-3 py-1.5 font-code text-label-sm text-on-surface-variant">
+        <span>{formatBytes(video.size)}</span>
+        {source && (
+          <>
+            <span>• {durationLabel(source.durationInFrames, source.fps)}</span>
+            <span>
+              • {source.width} × {source.height}
+            </span>
+            <span>• {source.fps} fps</span>
+          </>
+        )}
       </div>
     </div>
   );

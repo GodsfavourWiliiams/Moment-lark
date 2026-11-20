@@ -111,6 +111,7 @@ export function ClipsPage() {
         }}
         onExport={() => {
           exports.select(selected);
+          dispatch({ type: "prepare-export", ids: selected });
           router.push(getStudioSection("export").href);
         }}
       />

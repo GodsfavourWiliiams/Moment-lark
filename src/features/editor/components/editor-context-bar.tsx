@@ -35,7 +35,9 @@ export function EditorContextBar({
                   : "In Review"}
             </span>
             <h1 className="text-headline-md font-semibold tracking-tight">
-              Editing Suggestion {index + 1} of {clips.length}: &quot;
+              Editing{" "}
+              {clip.origin?.kind === "suggestion" ? "Suggestion" : "Clip"}{" "}
+              {index + 1} of {clips.length}: &quot;
               {clip.title}&quot;
             </h1>
           </div>

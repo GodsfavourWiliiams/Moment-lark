@@ -22,7 +22,6 @@ export async function readLocalVideo(
     const stats = await track.computePacketStats(100);
     const fps = Math.max(1, Math.round(stats.averagePacketRate || 30));
     const durationInFrames = Math.max(1, Math.floor(duration * fps));
-    const out = Math.min(durationInFrames, 80 * fps);
     return {
       source: {
         id: crypto.randomUUID(),
@@ -34,27 +33,7 @@ export async function readLocalVideo(
         width: track.displayWidth,
         height: track.displayHeight,
       },
-      clips: [
-        {
-          id: "1",
-          ordinal: 1,
-          title: file.name.replace(/\.[^.]+$/, "").slice(0, 60),
-          rationale:
-            "Manual selection from your local recording. Adjust the trim handles to choose a moment.",
-          topic: "Manual selection",
-          score: null,
-          thumbnail: null,
-          status: "unreviewed",
-          inFrame: 0,
-          outFrame: out,
-          originalIn: 0,
-          originalOut: out,
-          aspect: "original",
-          cropX: 0.5,
-          centered: true,
-          captions: [],
-        },
-      ],
+      clips: [],
     };
   } finally {
     input.dispose();

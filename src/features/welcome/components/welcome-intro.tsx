@@ -9,11 +9,11 @@ export function WelcomeIntro() {
           className="size-2 rounded-full bg-primary-container"
           aria-hidden="true"
         />
-        <span>Local Wasm Engine Ready</span>
+        <span>Local Video Studio</span>
         <span className="text-outline" aria-hidden="true">
           /
         </span>
-        <span className="text-on-surface">Zero Bandwidth</span>
+        <span className="text-on-surface">No Media Uploads</span>
       </div>
       <h1
         id="welcome-heading"

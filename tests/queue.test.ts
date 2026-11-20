@@ -1,7 +1,8 @@
+import { fixtureState } from "./fixtures/editing";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { unzipSync, strFromU8 } from "fflate";
-import { editingReducer, initialEditingState } from "../src/state/editing";
+import { editingReducer } from "../src/state/editing";
 import {
   queueClips,
   createManualClip,
@@ -13,20 +14,20 @@ import { createClipArchive } from "../src/lib/media/download-archive";
 import type { ExportJob } from "../src/types/export";
 
 test("duplicates are independent, kept, uniquely named, and undoable", () => {
-  const state = editingReducer(initialEditingState, {
+  const state = editingReducer(fixtureState, {
     type: "duplicate",
     id: "2",
     newId: "copy",
   });
-  const copy = state.document.clips.at(-1)!;
+  const copy = state.document!.clips.at(-1)!;
   assert.equal(copy.status, "kept");
   assert.equal(copy.ordinal, 5);
-  assert.notEqual(copy.captions, state.document.clips[1].captions);
-  assert.notEqual(clipFilename(copy), clipFilename(state.document.clips[1]));
+  assert.notEqual(copy.captions, state.document!.clips[1].captions);
+  assert.notEqual(clipFilename(copy), clipFilename(state.document!.clips[1]));
   assert.deepEqual(copy.origin, { kind: "suggestion", ordinal: 2 });
   assert.deepEqual(
     editingReducer(state, { type: "undo" }).document,
-    initialEditingState.document,
+    fixtureState.document,
   );
   assert.equal(
     editingReducer(state, { type: "duplicate", id: "2", newId: "copy" }),
@@ -36,8 +37,8 @@ test("duplicates are independent, kept, uniquely named, and undoable", () => {
 
 test("manual clips preserve original framing and fit short source durations", () => {
   const document = {
-    ...initialEditingState.document,
-    source: { ...initialEditingState.document.source, durationInFrames: 14 },
+    ...fixtureState.document,
+    source: { ...fixtureState.document!.source, durationInFrames: 14 },
   };
   const clip = createManualClip(document, "manual");
   assert.equal(clip.outFrame, 14);
@@ -47,7 +48,7 @@ test("manual clips preserve original framing and fit short source durations", ()
 });
 
 test("queue filters and sorts only kept clips without mutating timeline order", () => {
-  const clips = initialEditingState.document.clips.map((clip) => ({
+  const clips = fixtureState.document!.clips.map((clip) => ({
     ...clip,
     status: "kept" as const,
   }));
@@ -65,13 +66,13 @@ test("queue filters and sorts only kept clips without mutating timeline order", 
     ["1", "2", "3", "4"],
   );
   assert.equal(
-    queueClips(initialEditingState.document.clips, "all", "timeline").length,
+    queueClips(fixtureState.document!.clips, "all", "timeline").length,
     1,
   );
 });
 
 test("completed export becomes stale after editing, but not after a queue decision", () => {
-  const clip = initialEditingState.document.clips[0];
+  const clip = fixtureState.document!.clips[0];
   assert.notEqual(
     renderSignature(clip),
     renderSignature({ ...clip, outFrame: clip.outFrame - 1 }),
@@ -83,12 +84,12 @@ test("completed export becomes stale after editing, but not after a queue decisi
 });
 
 test("export summary counts actual completion and excludes canceled progress", () => {
-  const jobs: ExportJob[] = initialEditingState.document.clips
-    .slice(0, 3)
+  const jobs: ExportJob[] = fixtureState
+    .document!.clips.slice(0, 3)
     .map((clip) => ({
       id: clip.id,
       clip,
-      source: initialEditingState.document.source,
+      source: fixtureState.document!.source,
       status: "queued",
       progress: 0,
       message: "",

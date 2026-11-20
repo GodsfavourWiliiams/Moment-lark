@@ -1,5 +1,4 @@
 "use client";
-
 import {
   useCallback,
   useEffect,
@@ -7,21 +6,21 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { DEMO_VIDEO } from "@/config/demo";
-import { getStudioSection, type StudioSectionId } from "@/config/navigation";
 import { useRouter } from "next/navigation";
-import { useEditing } from "@/hooks/use-editing";
-import { useAnalysisPreview } from "@/hooks/use-analysis-preview";
+import { getStudioSection, type StudioSectionId } from "@/config/navigation";
+import { useEditingSession } from "@/hooks/use-editing";
+import { useWorkflow } from "@/hooks/use-workflow";
 import { useStudioShortcuts } from "@/hooks/use-studio-shortcuts";
 import { initialStudioState, studioReducer } from "@/state/studio";
 import { StudioContext } from "@/state/studio-context";
 
 export function StudioProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { loadFile, loadDemo } = useEditing();
+  const { loadFile, cancelLoad, resetSession, reached } = useEditingSession();
+  const workflow = useWorkflow();
   const [state, dispatch] = useReducer(studioReducer, initialStudioState);
   const inputRef = useRef<HTMLInputElement>(null);
-  const returnTarget = useRef("choose-video-button");
+  const request = useRef(0);
   const previousView = useRef(state.view);
   const openPicker = useCallback(() => inputRef.current?.click(), []);
   const openShortcuts = useCallback(
@@ -32,62 +31,46 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     () => dispatch({ type: "open-dialog", dialog: null }),
     [],
   );
-  const returnToImport = useCallback(
-    () => dispatch({ type: "return-to-import" }),
-    [],
-  );
-  const openSection = useCallback(
-    (section: StudioSectionId) => {
-      if (section === "import") dispatch({ type: "return-to-import" });
-      else if (getStudioSection(section).available)
-        router.push(getStudioSection(section).href);
-      else
-        dispatch({ type: "open-dialog", dialog: { kind: "section", section } });
-    },
-    [router],
-  );
-  const advance = useCallback(() => dispatch({ type: "advance-preview" }), []);
-  useAnalysisPreview(
-    state.view === "analysis" && state.progress < 100,
-    advance,
-  );
+  const returnToImport = useCallback(() => {
+    request.current++;
+    if (reached.suggestions) cancelLoad();
+    else resetSession();
+    dispatch({ type: "return-to-import" });
+  }, [cancelLoad, resetSession, reached.suggestions]);
+  const openSection = (section: StudioSectionId) => {
+    if (!workflow.canOpen(section)) return;
+    router.push(getStudioSection(section).href);
+  };
   useStudioShortcuts({
     openPicker,
     openShortcuts,
     dialogOpen: state.dialog !== null,
   });
 
-  const startSample = useCallback(() => {
-    loadDemo();
-    returnTarget.current = "analyze-sample-button";
-    dispatch({ type: "start-analysis", video: DEMO_VIDEO });
-  }, [loadDemo]);
   const selectFiles = useCallback(
     async (files: FileList) => {
       if (!files.length) return;
-      if (files.length !== 1) {
+      if (files.length !== 1 || !/\.(mp4|mov|webm)$/i.test(files[0].name)) {
+        dispatch({ type: "return-to-import" });
+        router.push("/");
         dispatch({
           type: "file-error",
-          message: "Please choose one video at a time.",
+          message: "Choose one MP4, MOV, or WebM video.",
         });
         return;
       }
       const file = files[0];
-      if (!/\.(mp4|mov|webm)$/i.test(file.name)) {
-        dispatch({
-          type: "file-error",
-          message: "Choose an MP4, MOV, or WebM video.",
-        });
-        return;
-      }
+      const id = ++request.current;
+      dispatch({
+        type: "start-analysis",
+        video: { name: file.name, size: file.size },
+      });
+      router.push("/");
       try {
-        if (!(await loadFile(file))) return;
-        returnTarget.current = "choose-video-button";
-        dispatch({
-          type: "start-analysis",
-          video: { name: file.name, size: file.size, source: "file" },
-        });
+        if (!(await loadFile(file)) || id !== request.current) return;
+        dispatch({ type: "video-ready" });
       } catch (error) {
+        if (id !== request.current) return;
         dispatch({
           type: "file-error",
           message:
@@ -97,14 +80,29 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [loadFile],
+    [loadFile, router],
   );
 
   useEffect(() => {
+    if (
+      state.view !== "analysis" ||
+      state.reading ||
+      state.error ||
+      !reached.suggestions
+    )
+      return;
+    // Completion is an engine result for the current source, not a timer or percentage threshold.
+    dispatch({ type: "return-to-import" });
+    router.replace(getStudioSection("suggestions").href);
+  }, [state.view, state.reading, state.error, reached.suggestions, router]);
+
+  useEffect(() => {
     if (state.view === previousView.current) return;
-    const target =
-      state.view === "analysis" ? "analysis-heading" : returnTarget.current;
-    document.getElementById(target)?.focus({ preventScroll: true });
+    document
+      .getElementById(
+        state.view === "analysis" ? "analysis-heading" : "choose-video-button",
+      )
+      ?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
     previousView.current = state.view;
   }, [state.view]);
@@ -119,11 +117,22 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         closeDialog,
         returnToImport,
         openSection,
-        startSample,
         selectFiles,
       }}
     >
       {children}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
+        hidden
+        aria-label="Choose a video file"
+        onChange={(event) => {
+          if (event.currentTarget.files)
+            void selectFiles(event.currentTarget.files);
+          event.currentTarget.value = "";
+        }}
+      />
     </StudioContext.Provider>
   );
 }

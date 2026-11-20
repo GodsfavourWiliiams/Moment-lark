@@ -2,13 +2,13 @@
 
 Moment Lark is a browser video clipping workspace built from the supplied Stitch designs with Next.js, TypeScript, and Tailwind CSS v4.
 
-The Import, in-place Analysis preview, Suggestions (`/suggestions`), Editor (`/editor?clip=2`), Clips (`/clips`), and Export (`/export`) screens share one layout and navigation. Suggestions and Editor use the same clip document, so titles, trim bounds, captions, framing, review decisions, and queue totals remain consistent when navigating. The supplied podcast images and four suggestions are explicit design fixtures, not generated AI results.
+The workflow is **Import → Analysis → Suggestions → optional Editor → Clips → Export**. All screens share the root layout and normal Next.js navigation links. A fresh session contains no recording or clips. Import opens the in-place Analysis state, never the Editor. Header links and direct routes use the same session prerequisites: Suggestions requires completed analysis results for the active source, Analysis automatically routes to Suggestions when results are ready; Editor requires an explicit edit action, Clips requires a kept clip, and Export requires proceeding with selected kept clips. Reached steps remain available for revisiting and undo; importing another video resets them.
 
 The media foundation uses **Remotion Player**, **@remotion/media**, and **@remotion/web-renderer**. The UI retains the supplied layout and controls; Remotion handles composition playback and rendering. One composition drives preview and export. Mediabunny reads local metadata and samples bounded audio windows for the timeline.
 
-Local file import creates one manual clip. Playback, frame-grid trim controls, original source framing by default, optional 9:16 / 1:1 crops, manual horizontal crop positioning, title overlays, timed captions, undo/redo, keep/dismiss, and a kept-clip queue are implemented. The Clips route supports format filters, sorting, per-clip export selection, preview, duplication, removal with undo, and creating manual clips. Export snapshots clip settings, processes selected clips sequentially, and retains progress and completed files across route navigation. Failed/canceled jobs can be retried; completed MP4s can be previewed, downloaded individually, or bundled into a ZIP with fflate. Editing a clip invalidates its previous render in the export UI. Demo still images cannot be exported as video.
+Local file import reads metadata and starts with an empty clip list. Playback, frame-grid trim controls, original source framing by default, optional 9:16 / 1:1 crops, manual horizontal crop positioning, title overlays, timed captions, undo/redo, keep/dismiss, and a kept-clip queue are implemented. The Clips route supports format filters, sorting, per-clip export selection, preview, duplication, removal with undo, and creating manual clips. Export snapshots clip settings, processes selected clips sequentially, and retains progress and completed files across route navigation. Failed/canceled jobs can be retried; completed MP4s can be previewed, downloaded individually, or bundled into a ZIP with fflate. Editing a clip invalidates its previous render in the export UI.
 
-Automatic transcription, AI highlight ranking, active-speaker tracking, persistent project storage remain future work. Analysis is still a clearly marked simulation on the Import route. A reload resets the editing session; a URL cannot restore a local File.
+Automatic transcription, AI highlight ranking, active-speaker tracking, and persistent project storage remain future work. The simulated analysis timer, example suggestions, stock media, and fabricated telemetry have been removed from production. The Analysis view retains the designed four stages, progress area, and framing telemetry. It previews the imported video in its original framing. Measurements remain empty until the engine supplies them; there is no simulated timer or Proceed button. Actual completion automatically routes to Suggestions. Integration must dispatch `analysis-complete` with the current source ID and actual clip results. Stale-source results are ignored. Reloading resets the session; a URL cannot restore a local File. Test fixtures live under `tests/fixtures/` only.
 
 ## Run locally
 
@@ -30,9 +30,9 @@ src/
     layout/            Shared studio header and dialogs
     media/             Shared Remotion composition, player, controls, queue
     providers/         Studio workflow and shared editing document
-  config/              Brand, navigation routes, shortcuts, demo fixture
+  config/              Brand, navigation routes, shortcuts
   features/welcome/    Import screen components and display data
-  features/analysis/   Analysis state view, components, and preview fixtures
+  features/analysis/   In-place import/analysis state and stage components
   features/suggestions/ Ranked cards, filters, source timeline, decision bar
   features/editor/     Clip editing panels and precision timeline
   features/clips/      Kept-clip cards, filters, sorting, batch selection
@@ -50,7 +50,7 @@ Reserve top-level `services/` for endpoint/API clients. Browser media helpers an
 
 Use Tailwind utilities in components. `src/styles/tokens.css` defines the semantic palette, typography, spacing, radii, and shadows with Tailwind's `@theme`. For example: `bg-surface-container-low`, `text-headline-md`, `gap-space-lg`, and `shadow-neon`. Global CSS contains only the font declaration and shared base styles; there are no component CSS files.
 
-The root layout owns the header, main landmark, provider, and dialogs. `src/config/navigation.ts` is the single source for workflow labels and routes. All five workflow destinations are active routes. The header stays in the shared layout; the analysis preview remains a state of Import.
+The root layout owns the header, main landmark, provider, and dialogs. `src/config/navigation.ts` is the single source for workflow labels and routes. Workflow routes become available only when their step has been reached. The header stays in the shared layout; analysis remains a state of Import.
 
 Inter is hosted locally in `public/fonts/`. `Logo` accepts `variant="mark"`, `variant="text"`, or `variant="both"` (default). The brand mark is a local SVG reconstructed from the supplied visual reference: a dark rounded tile with lime bars and rings joined by a white diagonal connector. Its path is configured in `src/config/brand.ts`; the favicon uses the same artwork. SVG icons do not depend on an external icon font.
 
@@ -62,7 +62,7 @@ Codec decoding and H.264/AAC encoding depend on browser capabilities; unsupporte
 
 Original framing preserves source dimensions on export and fits the full source into the preview without cropping. Geometry tests cover landscape, portrait, square, and 4:3 sources, including preview/export crop alignment. Rotated-file metadata still needs a broader real-media test matrix. Long-file memory, cancellation, codec coverage, and browser compatibility also require a broader media test matrix.
 
-Remotion's [license terms](https://www.remotion.dev/license) apply. Where required, configure `NEXT_PUBLIC_REMOTION_LICENSE_KEY` at build time; this is a browser-visible license key, not a private API credential. The web renderer reports usage/licensing metadata to Remotion. Media processing stays local, but the application must not be described as fully air-gapped or telemetry-free. The existing welcome/analysis pipeline copy describes the intended product, not all current capabilities.
+Remotion's [license terms](https://www.remotion.dev/license) apply. Where required, configure `NEXT_PUBLIC_REMOTION_LICENSE_KEY` at build time; this is a browser-visible license key, not a private API credential. The web renderer reports usage/licensing metadata to Remotion. Media processing stays local, but the application must not be described as fully air-gapped or telemetry-free.
 
 ## Checks
 
@@ -87,3 +87,5 @@ The production build produces `out/` for static hosting. CI runs these checks on
 - `dev`: integration branch for active work
 
 Work starts on `dev` and reaches `master` through a pull request.
+
+Workflow tests cover empty sessions, importing without bypassing Analysis, stale analysis results, optional editing, keep/export prerequisites, and resetting access on source replacement. The fresh-session Editor redirect was also checked in Safari. The native file picker remained unable to confirm the test file during this check; a complete import-through-analysis browser check is still outstanding.

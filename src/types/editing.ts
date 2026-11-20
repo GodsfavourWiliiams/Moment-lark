@@ -4,7 +4,7 @@ export type SuggestionFilter = "all" | "unreviewed" | "kept";
 
 export type MediaSource = {
   id: string;
-  kind: "demo" | "local";
+  kind: "local";
   name: string;
   url: string | null;
   durationInFrames: number;
@@ -41,7 +41,13 @@ export type ClipDocument = {
 };
 export type EditingDocument = { source: MediaSource; clips: ClipDocument[] };
 export type EditingState = {
-  document: EditingDocument;
+  document: EditingDocument | null;
+  reached: {
+    suggestions: boolean;
+    editor: boolean;
+    clips: boolean;
+    export: boolean;
+  };
   past: EditingDocument[];
   future: EditingDocument[];
   announcement: string;
@@ -59,6 +65,10 @@ export type ClipPatch = Partial<
   >
 >;
 export type EditingAction =
+  | { type: "reset" }
+  | { type: "analysis-complete"; sourceId: string; clips: ClipDocument[] }
+  | { type: "enter-editor"; id: string }
+  | { type: "prepare-export"; ids: string[] }
   | { type: "append"; clip: ClipDocument }
   | { type: "duplicate"; id: string; newId: string }
   | { type: "load"; document: EditingDocument }

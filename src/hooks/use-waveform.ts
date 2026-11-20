@@ -53,9 +53,5 @@ export function useWaveform(source: MediaSource, start: number, end: number) {
       dispose?.();
     };
   }, [source.id, source.url, source.fps, start, end, key]);
-  return source.kind === "demo"
-    ? undefined
-    : result?.key === key
-      ? result.peaks
-      : Array(100).fill(0);
+  return result?.key === key ? result.peaks : [];
 }

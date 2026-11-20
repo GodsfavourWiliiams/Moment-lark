@@ -1,6 +1,5 @@
 import {
   AbsoluteFill,
-  Img,
   interpolate,
   useCurrentFrame,
   useVideoConfig,
@@ -14,7 +13,6 @@ export type ClipCompositionProps = {
   clip: ClipDocument;
   startFrame: number;
   preview: boolean;
-  poster: string;
   captionsVisible: boolean;
 };
 
@@ -24,7 +22,6 @@ export function ClipComposition({
   clip,
   startFrame,
   preview,
-  poster,
   captionsVisible,
 }: ClipCompositionProps) {
   const frame = useCurrentFrame();
@@ -53,11 +50,10 @@ export function ClipComposition({
   const showTitle = captionsVisible && titleFrame >= 0 && titleFrame < fps * 3;
   return (
     <AbsoluteFill className="overflow-hidden bg-black font-sans">
-      {source.url ? (
+      {source.url && (
         <Video src={source.url} trimBefore={startFrame} style={mediaStyle} />
-      ) : (
-        <Img src={poster} style={{ ...mediaStyle, objectFit: "cover" }} />
       )}
+
       <div className="absolute" style={area}>
         {showTitle && (
           <div
@@ -99,18 +95,7 @@ export function ClipComposition({
               className="inline-block rounded-lg bg-black/90"
               style={{ padding: `${16 * scale}px ${24 * scale}px` }}
             >
-              {caption.text.split(/(locally)/i).map((part, index) =>
-                part.toLowerCase() === "locally" ? (
-                  <span
-                    key={index}
-                    className="text-primary-container underline decoration-2 underline-offset-4"
-                  >
-                    {part}
-                  </span>
-                ) : (
-                  part
-                ),
-              )}
+              {caption.text}
             </span>
           </div>
         )}

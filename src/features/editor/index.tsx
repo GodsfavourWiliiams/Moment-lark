@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
@@ -19,9 +20,21 @@ import { EditorActions } from "./components/editor-actions";
 export function EditorPage() {
   const { document } = useEditing();
   const params = useSearchParams();
-  const id = params.get("clip") ?? "2";
+  const id = params.get("clip");
   const clip =
     document.clips.find((clip) => clip.id === id) ?? document.clips[0];
+  if (!clip)
+    return (
+      <section className="mx-auto max-w-4xl p-8 text-center">
+        <h1 className="text-headline-lg">No clip selected</h1>
+        <Link
+          href={getStudioSection("suggestions").href}
+          className="mt-4 inline-flex rounded-lg bg-primary-container px-4 py-2 text-on-primary-fixed"
+        >
+          Back to Suggestions
+        </Link>
+      </section>
+    );
   return (
     <EditorWorkspace key={`${document.source.id}:${clip.id}`} clip={clip} />
   );
@@ -32,10 +45,7 @@ function EditorWorkspace({ clip }: { clip: ClipDocument }) {
   const router = useRouter();
   const source = editing.document.source;
   const clips = editing.document.clips;
-  const player = useClipPlayer(
-    Math.min(clip.outFrame - 1, clip.inFrame + Math.round(27.3 * source.fps)),
-    source.durationInFrames,
-  );
+  const player = useClipPlayer(clip.inFrame, source.durationInFrames);
   const [settings, setSettings] = useState(false);
   const patch = (patch: ClipPatch) =>
     editing.dispatch({ type: "patch", id: clip.id, patch });
@@ -95,13 +105,13 @@ function EditorWorkspace({ clip }: { clip: ClipDocument }) {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1">
                   <h2 className="text-label-sm font-bold tracking-wider text-primary-fixed uppercase">
-                    {source.kind === "demo"
+                    {clip.origin?.kind === "suggestion"
                       ? "AI Moment Rationale"
                       : "Clip Rationale"}
                   </h2>
                   <span className="rounded bg-surface-container px-1.5 text-label-sm text-on-surface-variant">
-                    {source.kind === "demo"
-                      ? "High Attention Hook"
+                    {clip.origin?.kind === "suggestion"
+                      ? "Suggested Moment"
                       : "Manual Selection"}
                   </span>
                 </div>
@@ -117,7 +127,10 @@ function EditorWorkspace({ clip }: { clip: ClipDocument }) {
             >
               <Icon name="history" size={16} className="text-primary-fixed" />
               Reset to original{" "}
-              {source.kind === "demo" ? "AI suggestion" : "clip"} bounds
+              {clip.origin?.kind === "suggestion"
+                ? "AI suggestion"
+                : "clip"}{" "}
+              bounds
             </button>
           </section>
           <TrimTimeline
@@ -144,11 +157,7 @@ function EditorWorkspace({ clip }: { clip: ClipDocument }) {
             >
               Redo ⇧⌘Z
             </button>
-            <span className="ml-auto">
-              {source.kind === "demo"
-                ? "Design sample · example analysis"
-                : "Local editing · session only"}
-            </span>
+            <span className="ml-auto">Local editing · session only</span>
           </div>
         </WorkspacePane>
         <WorkspacePane

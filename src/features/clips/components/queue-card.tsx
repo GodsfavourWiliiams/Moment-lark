@@ -1,3 +1,4 @@
+import { useWorkflow } from "@/hooks/use-workflow";
 import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { ClipThumbnail } from "@/components/media/clip-thumbnail";
@@ -35,6 +36,7 @@ export function QueueCard({
       : `From AI Suggestion #${clip.origin?.kind === "suggestion" ? clip.origin.ordinal : clip.ordinal}`;
   const adjusted =
     clip.inFrame !== clip.originalIn || clip.outFrame !== clip.originalOut;
+  const workflow = useWorkflow();
   return (
     <article
       aria-labelledby={`queue-clip-${clip.id}`}
@@ -145,6 +147,7 @@ export function QueueCard({
         </button>
         <Link
           href={editorHref(clip.id)}
+          onClick={() => workflow.enterEditor(clip.id)}
           className="flex min-h-9 grow items-center justify-center gap-1.5 rounded bg-surface-container px-3 py-2 text-label-md hover:bg-surface-container-high xl:w-full"
         >
           <Icon name="edit" size={18} />

@@ -1,9 +1,9 @@
-import type { EditingDocument } from "@/types/editing";
+import type { EditingDocument } from "../../src/types/editing";
 
 export const EDITING_DEMO: EditingDocument = {
   source: {
     id: "design-demo",
-    kind: "demo",
+    kind: "local",
     name: "podcast_interview_founders_cut.mp4",
     url: null,
     durationInFrames: 2535 * 60,
@@ -115,4 +115,12 @@ export const EDITING_DEMO: EditingDocument = {
       captions: [],
     },
   ],
+};
+
+export const fixtureState = {
+  document: EDITING_DEMO,
+  past: [],
+  future: [],
+  announcement: "",
+  reached: { suggestions: true, editor: true, clips: true, export: false },
 };

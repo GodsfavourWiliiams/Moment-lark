@@ -36,11 +36,7 @@ export function VideoPreview({
     <div
       ref={attachContainer}
       className="relative flex w-full flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-xl fullscreen:justify-center"
-      aria-label={
-        source.kind === "demo"
-          ? "Interactive design preview using a still image"
-          : "Video preview"
-      }
+      aria-label="Video preview"
     >
       <div
         className={`z-20 flex min-h-10 flex-wrap items-center justify-between gap-2 bg-surface-container-lowest/80 px-space-md py-space-xs backdrop-blur-md ${editor ? "relative" : "relative sm:absolute sm:inset-x-0 sm:top-0"}`}
@@ -62,11 +58,7 @@ export function VideoPreview({
             className="hidden max-w-65 truncate text-body-sm text-on-surface-variant sm:inline"
             title={source.name}
           >
-            {editor
-              ? source.kind === "demo"
-                ? "Design sample · still preview"
-                : "Source: Local file"
-              : source.name}
+            {editor ? "Source: Local file" : source.name}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -120,9 +112,6 @@ export function VideoPreview({
               clip,
               startFrame: 0,
               preview: true,
-              poster: editor
-                ? "/images/editor-stage.jpg"
-                : "/images/suggestions-stage.jpg",
               captionsVisible: editor,
             }}
             durationInFrames={source.durationInFrames}

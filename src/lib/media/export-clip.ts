@@ -10,7 +10,7 @@ export async function exportClip(
 ) {
   if (!source.url)
     throw new Error(
-      "The supplied design contains still images, not a video file. Open a local video to export a real clip.",
+      "The local video is no longer available. Import it again to export clips.",
     );
   const { canRenderMediaOnWeb, renderMediaOnWeb } =
     await import("@remotion/web-renderer");
@@ -34,7 +34,6 @@ export async function exportClip(
     clip,
     startFrame: clip.inFrame,
     preview: false,
-    poster: "",
     captionsVisible: true,
   };
   const result = await renderMediaOnWeb({

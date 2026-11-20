@@ -7,7 +7,6 @@ import type { ClipDocument, MediaSource } from "@/types/editing";
 export function ClipThumbnail({
   clip,
   source,
-  variant,
   onPreview,
   status,
 }: {
@@ -19,12 +18,7 @@ export function ClipThumbnail({
 }) {
   const size = outputSize(clip.aspect, source);
   const portrait = size.height > size.width;
-  const image =
-    source.kind === "demo" && clip.aspect === "original"
-      ? `/images/${variant}-2.jpg`
-      : source.kind === "demo" && clip.ordinal <= 3
-        ? `/images/${variant}-${clip.ordinal}.jpg`
-        : clip.thumbnail;
+  const image = clip.thumbnail;
   return (
     <div
       className={`relative shrink-0 overflow-hidden rounded-lg bg-surface-container-lowest shadow-lg ${portrait ? "w-28 sm:w-32" : "w-48 sm:w-56"}`}

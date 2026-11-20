@@ -6,10 +6,12 @@ import { Logo } from "@/components/brand/logo";
 import { Button, Kbd } from "@/components/ui";
 import { BRAND } from "@/config/brand";
 import { IMPORT_ROUTE, STUDIO_NAVIGATION } from "@/config/navigation";
+import { useWorkflow } from "@/hooks/use-workflow";
 import { useStudio } from "@/hooks/use-studio";
 
 export function StudioHeader() {
   const studio = useStudio();
+  const workflow = useWorkflow();
   const pathname = usePathname();
   return (
     <header className="sticky top-0 z-50 border-b border-surface-container-highest bg-surface/90 backdrop-blur-xl">
@@ -35,38 +37,25 @@ export function StudioHeader() {
           className="order-3 col-span-2 mb-2 overflow-x-auto xl:order-0 xl:col-span-1 xl:mb-0"
         >
           <div className="flex w-max items-center rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-1">
-            {STUDIO_NAVIGATION.map((item) => {
-              const active =
-                pathname === item.href &&
-                (item.id !== "import" || studio.view === "import");
-              const classes = `inline-flex min-h-9 items-center rounded-lg px-space-md text-label-md transition-colors motion-reduce:transition-none ${active ? "bg-primary-container font-semibold text-on-primary-fixed shadow-nav" : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"}`;
-              return item.available ? (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  onClick={
-                    item.id === "import" ? studio.returnToImport : undefined
-                  }
-                  aria-current={active ? "page" : undefined}
-                  className={classes}
-                >
-                  {item.label}
-                </Link>
-              ) : (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={(event) => {
-                    event.currentTarget.focus();
-                    studio.openSection(item.id);
-                  }}
-                  aria-haspopup="dialog"
-                  className={classes}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
+            {STUDIO_NAVIGATION.filter((item) => workflow.canOpen(item.id)).map(
+              (item) => {
+                const active = pathname === item.href;
+                const classes = `inline-flex min-h-9 items-center rounded-lg px-space-md text-label-md transition-colors motion-reduce:transition-none ${active ? "bg-primary-container font-semibold text-on-primary-fixed shadow-nav" : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"}`;
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    onClick={
+                      item.id === "import" ? studio.returnToImport : undefined
+                    }
+                    aria-current={active ? "page" : undefined}
+                    className={classes}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              },
+            )}
           </div>
         </nav>
         <div className="flex items-center justify-end gap-3">

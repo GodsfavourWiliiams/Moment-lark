@@ -8,7 +8,6 @@ export type StudioContextValue = StudioState & {
   inputRef: RefObject<HTMLInputElement | null>;
   openPicker: () => void;
   selectFiles: (files: FileList) => void;
-  startSample: () => void;
   returnToImport: () => void;
   openShortcuts: () => void;
   closeDialog: () => void;

@@ -12,7 +12,7 @@ export function PrivacyCard() {
         </div>
         <div>
           <span className="mb-1 inline-block rounded-sm bg-surface-container-highest px-1.5 py-0.5 font-code text-label-sm text-tertiary-fixed">
-            AIR-GAPPED COMPLIANT
+            LOCAL MEDIA
           </span>
           <h2
             id="privacy-heading"
@@ -23,12 +23,12 @@ export function PrivacyCard() {
         </div>
       </div>
       <p className="mb-space-lg text-body-md text-on-surface-variant">
-        Your video never leaves your browser. All frame extraction, audio
-        transcription, and clipping occurs entirely in your browser thread via
-        WebCodecs &amp; IndexedDB.
+        Your video stays in this browser session. Preview, trimming, and video
+        exports run on your device. Keep this tab open until you have saved your
+        finished clips.
       </p>
       <div className="flex flex-wrap items-center gap-space-md pt-space-xs text-label-sm text-on-surface-variant">
-        {["No Cloud Storage", "Zero Analytics Leaks"].map((label) => (
+        {["No Cloud Storage", "Local Video Processing"].map((label) => (
           <span key={label} className="inline-flex items-center gap-1.5">
             <span
               aria-hidden="true"

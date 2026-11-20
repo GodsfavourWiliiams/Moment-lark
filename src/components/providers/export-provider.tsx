@@ -1,11 +1,12 @@
 "use client";
 import type { ReactNode } from "react";
-import { useEditing } from "@/hooks/use-editing";
+import { useEditingSession } from "@/hooks/use-editing";
 import { useExportController } from "@/hooks/use-export-controller";
 import { ExportContext } from "@/state/export-context";
 import type { MediaSource } from "@/types/editing";
 export function ExportProvider({ children }: { children: ReactNode }) {
-  const { document } = useEditing();
+  const { document } = useEditingSession();
+  if (!document) return children;
   return (
     <SessionExportProvider key={document.source.id} source={document.source}>
       {children}

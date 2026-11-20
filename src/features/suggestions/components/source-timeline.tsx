@@ -20,10 +20,10 @@ export function SourceTimeline({
   onSelect: (id: string) => void;
 }) {
   const peaks = useWaveform(source, 0, source.durationInFrames);
-  const ticks =
-    source.kind === "demo"
-      ? [0, 600, 1200, 1800, 2400, 2535].map((time) => time * source.fps)
-      : Array.from({ length: 6 }, (_, i) => (source.durationInFrames * i) / 5);
+  const ticks = Array.from(
+    { length: 6 },
+    (_, i) => (source.durationInFrames * i) / 5,
+  );
   return (
     <section
       aria-label="Full source timeline"
@@ -37,8 +37,7 @@ export function SourceTimeline({
           </span>
         </div>
         <span className="text-label-sm text-on-surface-variant">
-          {clips.length}{" "}
-          {source.kind === "demo" ? "Detected Key Regions" : "Manual Region"}
+          {clips.length} clip regions
         </span>
       </div>
       <div className="relative h-14 rounded-lg bg-surface-container-lowest p-1">

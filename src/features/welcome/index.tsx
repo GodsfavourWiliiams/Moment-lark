@@ -4,20 +4,23 @@ import { useStudio } from "@/hooks/use-studio";
 import { AnalysisView } from "@/features/analysis";
 import { ImportDropzone } from "./components/import-dropzone";
 import { PrivacyCard } from "./components/privacy-card";
-import { SampleCard } from "./components/sample-card";
+import { useEditingSession } from "@/hooks/use-editing";
 import { ShortcutRibbon } from "./components/shortcut-ribbon";
 import { WelcomeIntro } from "./components/welcome-intro";
 import { WorkflowGuide } from "./components/workflow-guide";
 
 export function WelcomePage() {
   const studio = useStudio();
+  const editing = useEditingSession();
   if (studio.view === "analysis" && studio.selectedVideo)
     return (
       <AnalysisView
         video={studio.selectedVideo}
-        progress={studio.progress}
+        source={studio.reading ? null : (editing.document?.source ?? null)}
+        reading={studio.reading}
+        error={studio.error}
+        complete={editing.reached.suggestions}
         onCancel={studio.returnToImport}
-        onContinue={() => studio.openSection("suggestions")}
       />
     );
 
@@ -26,15 +29,11 @@ export function WelcomePage() {
       <WelcomeIntro />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-space-xl">
         <ImportDropzone
-          inputRef={studio.inputRef}
           onBrowse={studio.openPicker}
           onFiles={studio.selectFiles}
           error={studio.error}
         />
-        <div className="-mt-space-xs grid grid-cols-1 gap-space-lg md:grid-cols-2">
-          <PrivacyCard />
-          <SampleCard onAnalyze={studio.startSample} />
-        </div>
+        <PrivacyCard />
         <WorkflowGuide />
         <ShortcutRibbon />
       </div>

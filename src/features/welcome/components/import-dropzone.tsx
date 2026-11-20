@@ -1,15 +1,13 @@
-import { useRef, useState, type RefObject } from "react";
+import { useRef, useState } from "react";
 import { Button, Icon } from "@/components/ui";
 
 type ImportDropzoneProps = {
-  inputRef: RefObject<HTMLInputElement | null>;
   onBrowse: () => void;
   onFiles: (files: FileList) => void;
   error: string | null;
 };
 
 export function ImportDropzone({
-  inputRef,
   onBrowse,
   onFiles,
   error,
@@ -87,17 +85,6 @@ export function ImportDropzone({
         <Icon name="folder" />
         <span>Choose Video File</span>
       </Button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
-        hidden
-        aria-label="Choose a video file"
-        onChange={(event) => {
-          if (event.currentTarget.files) onFiles(event.currentTarget.files);
-          event.currentTarget.value = "";
-        }}
-      />
       <div
         id="video-formats"
         className="pointer-events-none relative mt-space-lg flex flex-wrap items-center justify-center gap-space-xs"

@@ -2,19 +2,31 @@ export function AnalysisProgress({
   progress,
   title,
   stage,
+  remainingSeconds,
+  complete,
 }: {
-  progress: number;
+  progress?: number;
   title: string;
-  stage: number;
+  stage?: number;
+  remainingSeconds?: number;
+  complete: boolean;
 }) {
-  const complete = progress === 100;
+  const percent = complete
+    ? 100
+    : progress === undefined
+      ? undefined
+      : Math.max(0, Math.min(100, progress));
   return (
     <>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-primary-container/20 px-2.5 py-0.5 text-label-sm tracking-wider text-primary-fixed uppercase">
-              {complete ? "All Steps Complete" : `Step ${stage} of 4`}
+              {complete
+                ? "All Steps Complete"
+                : stage
+                  ? `Step ${stage} of 4`
+                  : "4-Step Pipeline"}
             </span>
             <span className="text-label-sm text-on-surface-variant">
               Neural Analysis Runtime
@@ -31,7 +43,7 @@ export function AnalysisProgress({
         <div className="flex shrink-0 flex-col gap-1 md:items-end">
           <div className="flex items-baseline gap-1.5">
             <span className="font-code text-headline-xl leading-none font-bold text-primary-fixed tabular-nums">
-              {progress}%
+              {percent === undefined ? "—" : `${Math.round(percent)}%`}
             </span>
             <span className="text-label-md text-on-surface-variant">
               complete
@@ -39,23 +51,27 @@ export function AnalysisProgress({
           </div>
           <span className="text-body-sm text-on-surface-variant">
             {complete
-              ? "Demo ready to continue"
-              : `Estimated ~${Math.ceil((100 - progress) * 0.6)}s remaining`}
+              ? "Opening Suggestions…"
+              : remainingSeconds === undefined
+                ? "Awaiting analysis"
+                : `Estimated ~${Math.ceil(remainingSeconds)}s remaining`}
           </span>
         </div>
       </div>
       <div
         role="progressbar"
-        aria-label="Simulated video analysis progress"
+        aria-label="Video analysis progress"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={progress}
-        aria-valuetext={`${progress}% — ${title}`}
+        aria-valuenow={percent}
+        aria-valuetext={`${percent === undefined ? "—" : `${Math.round(percent)}%`} — ${title}`}
         className="h-2.5 w-full overflow-hidden rounded-full bg-surface-container-lowest p-0.5"
       >
         <div
           className="h-full rounded-full bg-primary-container shadow-nav transition-[width] duration-300 ease-out motion-reduce:transition-none"
-          style={{ width: `${progress}%` }}
+          style={{
+            width: `${percent ?? 0}%`,
+          }}
         />
       </div>
       <p
@@ -64,9 +80,7 @@ export function AnalysisProgress({
         aria-atomic="true"
         className="sr-only"
       >
-        {complete
-          ? "Analysis preview complete. Proceed to Suggestions is now available."
-          : `Demo stage ${stage} of 4. ${title}.`}
+        {complete ? "Analysis complete. Opening Suggestions." : title}
       </p>
     </>
   );

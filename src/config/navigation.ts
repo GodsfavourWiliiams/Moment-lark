@@ -1,15 +1,14 @@
 /** Single source of truth for labels, routes, and screen availability. */
 export const STUDIO_NAVIGATION = [
-  { id: "import", label: "Import", href: "/", available: true },
+  { id: "import", label: "Import", href: "/" },
   {
     id: "suggestions",
     label: "Suggestions",
     href: "/suggestions",
-    available: true,
   },
-  { id: "editor", label: "Editor", href: "/editor", available: true },
-  { id: "clips", label: "Clips", href: "/clips", available: true },
-  { id: "export", label: "Export", href: "/export", available: true },
+  { id: "editor", label: "Editor", href: "/editor" },
+  { id: "clips", label: "Clips", href: "/clips" },
+  { id: "export", label: "Export", href: "/export" },
 ] as const;
 
 export type StudioSectionId = (typeof STUDIO_NAVIGATION)[number]["id"];

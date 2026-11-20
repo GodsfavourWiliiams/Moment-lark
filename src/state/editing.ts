@@ -1,4 +1,3 @@
-import { EDITING_DEMO } from "../config/editing-demo";
 import { clamp } from "../lib/timecode";
 import type {
   ClipDocument,
@@ -8,7 +7,8 @@ import type {
 } from "../types/editing";
 
 export const initialEditingState: EditingState = {
-  document: EDITING_DEMO,
+  document: null,
+  reached: { suggestions: false, editor: false, clips: false, export: false },
   past: [],
   future: [],
   announcement: "",
@@ -17,17 +17,62 @@ export function editingReducer(
   state: EditingState,
   action: EditingAction,
 ): EditingState {
+  if (action.type === "reset") return initialEditingState;
   if (action.type === "load")
     return {
       document: action.document,
+      reached: { ...initialEditingState.reached },
       past: [],
       future: [],
-      announcement: "Video loaded. Ready to edit.",
+      announcement: "Video loaded. Awaiting analysis.",
     };
+  if (!state.document) return state;
+  if (action.type === "analysis-complete") {
+    if (
+      action.sourceId !== state.document.source.id ||
+      state.reached.suggestions
+    )
+      return state;
+    return {
+      ...state,
+      document: {
+        ...state.document,
+        clips: action.clips.map((clip) => ({
+          ...clip,
+          status: "unreviewed",
+          aspect: "original",
+          origin: { kind: "suggestion", ordinal: clip.ordinal },
+        })),
+      },
+      reached: { ...state.reached, suggestions: true },
+      announcement: `${action.clips.length} suggestions ready for review.`,
+    };
+  }
+  if (action.type === "enter-editor") {
+    if (
+      !state.reached.suggestions ||
+      !state.document.clips.some((clip) => clip.id === action.id)
+    )
+      return state;
+    return { ...state, reached: { ...state.reached, editor: true } };
+  }
+  if (action.type === "prepare-export") {
+    if (
+      !action.ids.length ||
+      !action.ids.every((id) =>
+        state.document!.clips.some(
+          (clip) => clip.id === id && clip.status === "kept",
+        ),
+      )
+    )
+      return state;
+    return { ...state, reached: { ...state.reached, export: true } };
+  }
   if (action.type === "undo") {
     const document = state.past.at(-1);
     return document
       ? {
+          ...state,
           document,
           past: state.past.slice(0, -1),
           future: [state.document, ...state.future],
@@ -39,6 +84,7 @@ export function editingReducer(
     const document = state.future[0];
     return document
       ? {
+          ...state,
           document,
           past: [...state.past, state.document],
           future: state.future.slice(1),
@@ -46,6 +92,7 @@ export function editingReducer(
         }
       : state;
   }
+  if (!state.reached.suggestions) return state;
   if (action.type === "append" || action.type === "duplicate") {
     const original =
       action.type === "duplicate"
@@ -74,6 +121,12 @@ export function editingReducer(
     if (!clip || state.document.clips.some((item) => item.id === clip.id))
       return state;
     return {
+      ...state,
+      reached: {
+        ...state.reached,
+        editor: state.reached.editor || action.type === "append",
+        clips: state.reached.clips || clip.status === "kept",
+      },
       document: { ...state.document, clips: [...state.document.clips, clip] },
       past: [...state.past.slice(-49), state.document],
       future: [],
@@ -131,6 +184,11 @@ export function editingReducer(
     ),
   };
   return {
+    ...state,
+    reached: {
+      ...state.reached,
+      clips: state.reached.clips || updated.status === "kept",
+    },
     document,
     past: [...state.past.slice(-49), state.document],
     future: [],

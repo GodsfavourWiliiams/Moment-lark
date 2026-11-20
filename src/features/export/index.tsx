@@ -72,13 +72,11 @@ export function ExportPage() {
       />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p role="status" className="text-body-sm text-on-surface-variant">
-          {document.source.kind === "demo"
-            ? "Design sample · import a local video to render and download real clips."
-            : queue.busy
-              ? "Rendering clips one at a time. You can continue reviewing in this tab."
-              : rows.length && summary.complete === rows.length
-                ? "Your finished clips are ready to download."
-                : "Render your selected clips when you’re ready."}
+          {queue.busy
+            ? "Rendering clips one at a time. You can continue reviewing in this tab."
+            : rows.length && summary.complete === rows.length
+              ? "Your finished clips are ready to download."
+              : "Render your selected clips when you’re ready."}
         </p>
         <button
           type="button"

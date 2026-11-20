@@ -9,10 +9,12 @@ export function DecisionBar({
   fps,
   activeId,
   onQueue,
+  onEdit,
 }: {
   clips: ClipDocument[];
   fps: number;
-  activeId: string;
+  activeId?: string;
+  onEdit: () => void;
   onQueue: () => void;
 }) {
   const kept = clips.filter((clip) => clip.status === "kept");
@@ -47,16 +49,20 @@ export function DecisionBar({
           </div>
         </div>
         <div className="flex w-full items-center justify-end gap-space-md sm:w-auto">
-          <Link
-            href={editorHref(activeId)}
-            className="text-label-md text-on-surface-variant hover:text-on-surface hover:underline"
-          >
-            Or customize in Editor
-          </Link>
+          {activeId && (
+            <Link
+              onClick={onEdit}
+              href={editorHref(activeId)}
+              className="text-label-md text-on-surface-variant hover:text-on-surface hover:underline"
+            >
+              Or customize in Editor
+            </Link>
+          )}
           <button
             type="button"
             onClick={onQueue}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary-container px-4 py-2.5 text-label-md font-bold text-on-primary-fixed shadow-neon hover:brightness-105"
+            disabled={!kept.length}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary-container px-4 py-2.5 text-label-md font-bold text-on-primary-fixed shadow-neon hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             View Kept Clips ({kept.length})<Icon name="arrow" size={18} />
           </button>

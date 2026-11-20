@@ -1,31 +1,40 @@
 import type { SelectedVideo } from "@/types/studio";
-import { AnalysisActions } from "./components/analysis-actions";
+import type { MediaSource } from "@/types/editing";
+import type { AnalysisSnapshot } from "@/types/analysis";
 import { AnalysisFileSummary } from "./components/analysis-file-summary";
 import { AnalysisProgress } from "./components/analysis-progress";
 import { AnalysisStages } from "./components/analysis-stages";
+import { AnalysisActions } from "./components/analysis-actions";
 import { FramingTelemetry } from "./components/framing-telemetry";
-import { RuntimeSummary } from "./components/runtime-summary";
-import { ANALYSIS_STAGES } from "./data/preview";
+import { ANALYSIS_STAGES } from "./data/stages";
 
-type AnalysisViewProps = {
-  video: SelectedVideo;
-  progress: number;
-  onCancel: () => void;
-  onContinue: () => void;
-};
-
-/** Full workspace state within Import, not a route or blocking modal. */
+/** The design stays in place; only engine results can populate its measurements. */
 export function AnalysisView({
   video,
-  progress,
+  source,
+  reading,
+  error,
+  complete,
+  snapshot = {},
   onCancel,
-  onContinue,
-}: AnalysisViewProps) {
-  const complete = progress >= 100;
-  const stage = progress >= 96 ? 4 : 3;
-  const title = complete
-    ? "Clip suggestions are ready"
-    : ANALYSIS_STAGES[stage - 1].title;
+}: {
+  video: SelectedVideo;
+  source: MediaSource | null;
+  reading: boolean;
+  error: string | null;
+  complete: boolean;
+  snapshot?: AnalysisSnapshot;
+  onCancel: () => void;
+}) {
+  const title = error
+    ? "Could not prepare this video"
+    : reading
+      ? "Reading your video"
+      : complete
+        ? "Clip suggestions are ready"
+        : snapshot.stage
+          ? ANALYSIS_STAGES[snapshot.stage - 1].title
+          : "Preparing video analysis";
   return (
     <section
       aria-labelledby="analysis-heading"
@@ -40,30 +49,44 @@ export function AnalysisView({
         className="pointer-events-none absolute right-12 bottom-8 h-55 w-80 rounded-full bg-secondary-container/15 blur-[100px]"
       />
       <div className="relative z-10 my-auto flex w-full max-w-4xl flex-col gap-6">
-        <p
-          id="analysis-demo-notice"
-          className="self-start rounded-full border border-outline-variant/40 bg-surface-container-low px-3 py-1 text-body-sm text-on-surface-variant"
-        >
-          UI demo · Simulated progress and telemetry. No video processing.
-        </p>
-        <AnalysisFileSummary video={video} complete={complete} />
+        <AnalysisFileSummary
+          video={video}
+          source={source}
+          reading={reading}
+          running={Boolean(snapshot.stage) && !complete}
+        />
         <div className="flex flex-col gap-8 overflow-hidden rounded-xl bg-surface-container p-6 shadow-2xl sm:p-8">
-          <AnalysisProgress progress={progress} title={title} stage={stage} />
+          <AnalysisProgress
+            title={title}
+            progress={snapshot.progress}
+            stage={snapshot.stage}
+            remainingSeconds={snapshot.remainingSeconds}
+            complete={complete}
+          />
+          {error && (
+            <p role="alert" className="text-body-sm text-error">
+              {error}
+            </p>
+          )}
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
             <div className="min-w-0 lg:col-span-7">
-              <AnalysisStages stage={stage} complete={complete} />
+              <AnalysisStages
+                stage={snapshot.stage}
+                complete={complete}
+                results={snapshot.stageResults}
+                faceSummary={snapshot.faceSummary}
+              />
             </div>
             <div className="min-w-0 lg:col-span-5">
-              <FramingTelemetry />
+              <FramingTelemetry
+                key={source?.id ?? "pending"}
+                source={source}
+                snapshot={snapshot}
+              />
             </div>
           </div>
-          <AnalysisActions
-            complete={complete}
-            onCancel={onCancel}
-            onContinue={onContinue}
-          />
+          <AnalysisActions complete={complete} onCancel={onCancel} />
         </div>
-        <RuntimeSummary />
       </div>
     </section>
   );

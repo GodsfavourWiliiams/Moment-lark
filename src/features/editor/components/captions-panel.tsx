@@ -61,7 +61,7 @@ export function CaptionsPanel({
           Live Transcript &amp; Captions
         </h2>
         <span className="rounded bg-surface-container-highest px-2 py-0.5 text-label-sm text-on-surface-variant">
-          {source.kind === "demo" ? "Sample transcript" : "Manual captions"}
+          Captions
         </span>
       </div>
       <div className="flex min-h-30 flex-1 flex-col gap-1 rounded-lg bg-surface-container-lowest p-2 shadow-inner">

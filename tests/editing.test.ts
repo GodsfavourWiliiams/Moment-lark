@@ -1,15 +1,16 @@
+import { fixtureState } from "./fixtures/editing";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { editingReducer, initialEditingState } from "../src/state/editing";
+import { editingReducer } from "../src/state/editing";
 import { durationLabel, parseTimecode, timecode } from "../src/lib/timecode";
 
 test("trim handles cannot cross or leave the source", () => {
-  let state = editingReducer(initialEditingState, {
+  let state = editingReducer(fixtureState, {
     type: "patch",
     id: "2",
     patch: { inFrame: 9999999 },
   });
-  let clip = state.document.clips[1];
+  let clip = state.document!.clips[1];
   assert.equal(clip.inFrame, clip.outFrame - 1);
   assert.equal(clip.outFrame, 755 * 60);
   state = editingReducer(state, {
@@ -17,22 +18,22 @@ test("trim handles cannot cross or leave the source", () => {
     id: "2",
     patch: { outFrame: -100 },
   });
-  clip = state.document.clips[1];
+  clip = state.document!.clips[1];
   assert.equal(clip.outFrame, clip.inFrame + 1);
   state = editingReducer(state, {
     type: "patch",
     id: "2",
     patch: { inFrame: -5, outFrame: 9999999 },
   });
-  assert.equal(state.document.clips[1].inFrame, 0);
+  assert.equal(state.document!.clips[1].inFrame, 0);
   assert.equal(
-    state.document.clips[1].outFrame,
-    state.document.source.durationInFrames,
+    state.document!.clips[1].outFrame,
+    state.document!.source.durationInFrames,
   );
 });
 
 test("keeping is idempotent and queued runtime reflects edits", () => {
-  let state = editingReducer(initialEditingState, {
+  let state = editingReducer(fixtureState, {
     type: "review",
     id: "2",
     status: "kept",
@@ -41,7 +42,7 @@ test("keeping is idempotent and queued runtime reflects edits", () => {
     editingReducer(state, { type: "review", id: "2", status: "kept" }),
     state,
   );
-  let kept = state.document.clips.filter((clip) => clip.status === "kept");
+  let kept = state.document!.clips.filter((clip) => clip.status === "kept");
   assert.equal(kept.length, 2);
   assert.equal(
     durationLabel(
@@ -55,7 +56,7 @@ test("keeping is idempotent and queued runtime reflects edits", () => {
     id: "2",
     patch: { outFrame: 735 * 60 },
   });
-  kept = state.document.clips.filter((clip) => clip.status === "kept");
+  kept = state.document!.clips.filter((clip) => clip.status === "kept");
   assert.equal(
     durationLabel(
       kept.reduce((total, clip) => total + clip.outFrame - clip.inFrame, 0),
@@ -66,7 +67,7 @@ test("keeping is idempotent and queued runtime reflects edits", () => {
 });
 
 test("undo and redo preserve caption timing, crop and review decisions", () => {
-  const edited = editingReducer(initialEditingState, {
+  const edited = editingReducer(fixtureState, {
     type: "patch",
     id: "2",
     patch: {
@@ -77,8 +78,8 @@ test("undo and redo preserve caption timing, crop and review decisions", () => {
     },
   });
   assert.deepEqual(
-    edited.document.clips[1].captions,
-    initialEditingState.document.clips[1].captions,
+    edited.document!.clips[1].captions,
+    fixtureState.document!.clips[1].captions,
   );
   const dismissed = editingReducer(edited, {
     type: "review",
@@ -100,18 +101,18 @@ test("undo and redo preserve caption timing, crop and review decisions", () => {
 });
 
 test("reset only restores trim boundaries; load clears stale undo history", () => {
-  const edited = editingReducer(initialEditingState, {
+  const edited = editingReducer(fixtureState, {
     type: "patch",
     id: "2",
     patch: { inFrame: 700 * 60, aspect: "1:1" },
   });
   const reset = editingReducer(edited, { type: "reset-bounds", id: "2" });
-  assert.equal(reset.document.clips[1].inFrame, 675 * 60);
-  assert.equal(reset.document.clips[1].aspect, "1:1");
+  assert.equal(reset.document!.clips[1].inFrame, 675 * 60);
+  assert.equal(reset.document!.clips[1].aspect, "1:1");
   assert.equal(
     editingReducer(reset, {
       type: "load",
-      document: initialEditingState.document,
+      document: fixtureState.document,
     }).past.length,
     0,
   );

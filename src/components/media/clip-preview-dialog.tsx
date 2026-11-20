@@ -42,7 +42,6 @@ export function ClipPreviewDialog({
                 clip,
                 startFrame: clip.inFrame,
                 preview: false,
-                poster: "/images/editor-stage.jpg",
                 captionsVisible: true,
               }}
               compositionWidth={size.width}
@@ -63,9 +62,6 @@ export function ClipPreviewDialog({
             />
           )}
           <p className="mt-3 text-body-sm text-on-surface-variant">
-            {source.kind === "demo" && !url
-              ? "Design sample · still image preview. "
-              : ""}
             {clip.title}
           </p>
         </>

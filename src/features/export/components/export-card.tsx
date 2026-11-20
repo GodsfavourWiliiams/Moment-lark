@@ -1,3 +1,4 @@
+import { useWorkflow } from "@/hooks/use-workflow";
 import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { ClipThumbnail } from "@/components/media/clip-thumbnail";
@@ -40,6 +41,7 @@ export function ExportCard({
             : status === "canceled"
               ? "Render Canceled"
               : "Ready to Render";
+  const workflow = useWorkflow();
   return (
     <article className="group flex w-full flex-col items-start justify-between gap-space-lg rounded-xl bg-surface-container-low p-space-lg shadow-md transition-colors hover:bg-surface-container lg:flex-row lg:items-center">
       <div className="flex min-w-0 flex-1 flex-col items-start gap-space-lg sm:flex-row sm:items-center">
@@ -179,6 +181,7 @@ export function ExportCard({
           <>
             <Link
               href={editorHref(clip.id)}
+              onClick={() => workflow.enterEditor(clip.id)}
               className="flex items-center gap-1 rounded-lg bg-surface-container px-3 py-2.5 text-label-md hover:bg-surface-container-high"
             >
               <Icon name="sliders" size={18} />

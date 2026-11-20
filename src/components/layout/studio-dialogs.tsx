@@ -1,19 +1,16 @@
 "use client";
 
-import { Button, Dialog, Kbd } from "@/components/ui";
-import { getStudioSection } from "@/config/navigation";
+import { Dialog, Kbd } from "@/components/ui";
 import { EDITOR_SHORTCUTS } from "@/config/shortcuts";
 import { useStudio } from "@/hooks/use-studio";
 
 export function StudioDialogs() {
   const { dialog, closeDialog, view } = useStudio();
-  const section =
-    dialog?.kind === "section" ? getStudioSection(dialog.section) : null;
   return (
     <Dialog
       open={dialog !== null}
       onClose={closeDialog}
-      title={section ? `${section.label} workspace` : "Keyboard shortcuts"}
+      title="Keyboard shortcuts"
     >
       <div className="flex flex-col gap-space-lg text-body-md text-on-surface-variant">
         {dialog?.kind === "shortcuts" ? (
@@ -64,20 +61,7 @@ export function StudioDialogs() {
               ))}
             </dl>
           </>
-        ) : (
-          <>
-            <p>
-              The {section?.label.toLowerCase()} screen will be connected in the
-              next phase.
-            </p>
-            <p>
-              You can review kept clips and export a local video from the queue
-              inside Suggestions or Editor. The dedicated workspace design is
-              still pending.
-            </p>
-            <Button onClick={closeDialog}>Back to workspace</Button>
-          </>
-        )}
+        ) : null}
       </div>
     </Dialog>
   );

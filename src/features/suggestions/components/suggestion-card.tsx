@@ -12,6 +12,7 @@ export function SuggestionCard({
   onPreview,
   onKeep,
   onDismiss,
+  onEdit,
 }: {
   clip: ClipDocument;
   selected: boolean;
@@ -19,6 +20,7 @@ export function SuggestionCard({
   onPreview: () => void;
   onKeep: () => void;
   onDismiss: () => void;
+  onEdit: () => void;
 }) {
   const kept = clip.status === "kept";
   const actionClass = `inline-flex min-h-8 items-center justify-center gap-1 rounded-lg px-space-sm py-1.5 text-label-sm transition-colors ${selected ? "bg-surface-container-highest hover:bg-surface-bright" : "bg-surface-container-high hover:bg-surface-container-highest"}`;
@@ -111,7 +113,11 @@ export function SuggestionCard({
             />
             {selected ? "Re-Preview" : "Preview"}
           </button>
-          <Link href={editorHref(clip.id)} className={actionClass}>
+          <Link
+            onClick={onEdit}
+            href={editorHref(clip.id)}
+            className={actionClass}
+          >
             <Icon name="edit" size={16} />
             Edit in Editor
           </Link>

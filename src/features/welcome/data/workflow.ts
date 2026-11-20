@@ -5,19 +5,19 @@ export const workflowSteps: WorkflowStep[] = [
   {
     title: "Select Video",
     description:
-      "Mount file descriptors into browser virtual memory with sub-frame timecode accuracy.",
+      "Choose a local recording to start analysis. Your video stays on your device.",
     icon: "input",
   },
   {
     title: "Review & Edit",
     description:
-      "Inspect silence markers, trim scene timestamps, and reframe horizontal footage into 9:16 vertical shorts.",
+      "Review suggested moments, keep the clips you want, and open the editor for adjustments. Resizing is optional.",
     icon: "sliders",
   },
   {
     title: "Batch Export",
     description:
-      "Render selected sub-clips simultaneously using threaded canvas encoders directly to your download reel.",
+      "Review your kept clips, then render and download them individually or together in a ZIP.",
     icon: "share",
   },
 ];

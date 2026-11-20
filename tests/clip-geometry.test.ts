@@ -1,3 +1,4 @@
+import { fixtureState } from "./fixtures/editing";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -6,7 +7,7 @@ import {
   PREVIEW_SIZE,
   previewGeometry,
 } from "../src/lib/clip-geometry";
-import { editingReducer, initialEditingState } from "../src/state/editing";
+import { editingReducer } from "../src/state/editing";
 
 const sources = [
   { width: 3840, height: 2160 },
@@ -70,11 +71,9 @@ test("explicit crop guides match the source region used by the export renderer",
 
 test("clips start uncropped and returning to Original preserves content edits", () => {
   assert.ok(
-    initialEditingState.document.clips.every(
-      (clip) => clip.aspect === "original",
-    ),
+    fixtureState.document!.clips.every((clip) => clip.aspect === "original"),
   );
-  const cropped = editingReducer(initialEditingState, {
+  const cropped = editingReducer(fixtureState, {
     type: "patch",
     id: "2",
     patch: { aspect: "9:16", cropX: 0.2, inFrame: 690 * 60, title: "My clip" },
@@ -84,8 +83,8 @@ test("clips start uncropped and returning to Original preserves content edits", 
     id: "2",
     patch: { aspect: "original" },
   });
-  assert.deepEqual(original.document.clips[1], {
-    ...cropped.document.clips[1],
+  assert.deepEqual(original.document!.clips[1], {
+    ...cropped.document!.clips[1],
     aspect: "original",
   });
 });

@@ -1,17 +1,22 @@
+import type { AnalysisSnapshot } from "@/types/analysis";
 import { Icon } from "@/components/ui";
-import { ANALYSIS_STAGES } from "../data/preview";
+import { ANALYSIS_STAGES } from "../data/stages";
 
 export function AnalysisStages({
   stage,
   complete,
+  results,
+  faceSummary,
 }: {
-  stage: number;
+  stage?: number;
+  results?: AnalysisSnapshot["stageResults"];
+  faceSummary?: string;
   complete: boolean;
 }) {
   return (
     <ol aria-label="Analysis stages" className="flex flex-col gap-3">
       {ANALYSIS_STAGES.map((item, index) => {
-        const done = complete || index + 1 < stage;
+        const done = complete || (stage !== undefined && index + 1 < stage);
         const active = !complete && index + 1 === stage;
         return (
           <li
@@ -47,7 +52,11 @@ export function AnalysisStages({
                 <span
                   className={`shrink-0 rounded-sm px-2 py-0.5 text-label-sm ${active ? "bg-surface-container-lowest text-primary-fixed" : done ? "bg-surface-container-high text-primary-fixed" : "text-on-surface-variant"}`}
                 >
-                  {done ? item.result : active ? `Stage ${stage}/4` : "Pending"}
+                  {done
+                    ? (results?.[(index + 1) as 1 | 2 | 3 | 4] ?? "Complete")
+                    : active
+                      ? `Stage ${stage}/4`
+                      : "Pending"}
                 </span>
               </div>
               <p
@@ -65,7 +74,7 @@ export function AnalysisStages({
                   <span>
                     Face detection bounding boxes:{" "}
                     <strong className="text-on-surface">
-                      Dual subjects (99.2% confidence)
+                      {faceSummary ?? "Awaiting detection"}
                     </strong>
                   </span>
                 </p>

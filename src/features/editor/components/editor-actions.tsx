@@ -58,13 +58,14 @@ export function EditorActions({
           className="inline-flex items-center justify-center gap-1 rounded-lg bg-surface-container px-2 py-2.5 text-label-md text-on-surface-variant hover:bg-error-container hover:text-on-error-container"
         >
           <Icon name="trash" size={16} />
-          Discard suggestion
+          Discard clip
         </button>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <button
           type="button"
           onClick={onQueue}
+          disabled={!keptCount}
           className="flex items-center gap-1.5 py-1 text-body-sm text-on-surface-variant hover:text-on-surface"
         >
           <span className="size-2 rounded-full bg-primary-fixed" />
@@ -80,13 +81,14 @@ export function EditorActions({
             href={editorHref(next.id)}
             className="inline-flex items-center gap-0.5 text-label-md font-semibold text-primary-fixed hover:underline"
           >
-            Next suggestion
+            Next clip
             <Icon name="arrow" size={16} />
           </Link>
         ) : (
           <button
             type="button"
             onClick={onQueue}
+            disabled={!keptCount}
             className="text-label-md text-primary-fixed hover:underline"
           >
             View kept clips

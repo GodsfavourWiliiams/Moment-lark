@@ -18,7 +18,7 @@ import { DecisionBar } from "./components/decision-bar";
 export function SuggestionsPage() {
   const router = useRouter();
   const editing = useEditing();
-  const [activeId, setActiveId] = useState("1");
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [previewVersion, setPreviewVersion] = useState(0);
   const [filter, setFilter] = useState<SuggestionFilter>("all");
   const [settings, setSettings] = useState(false);
@@ -42,9 +42,15 @@ export function SuggestionsPage() {
           />
         ) : (
           <div className="rounded-xl bg-surface-container-low p-8 text-center">
-            <h2 className="text-headline-lg">All suggestions reviewed</h2>
+            <h2 className="text-headline-lg">
+              {editing.document.clips.length
+                ? "All suggestions reviewed"
+                : "No clip suggestions found"}
+            </h2>
             <p className="mt-2 text-on-surface-variant">
-              Undo a dismissal to bring a moment back.
+              {editing.document.clips.length
+                ? "Undo a dismissal to bring a moment back."
+                : "No moments were returned for this recording."}
             </p>
             <button
               type="button"
@@ -70,15 +76,11 @@ export function SuggestionsPage() {
                   Clip Suggestions
                 </h1>
                 <p className="mt-0.5 text-body-sm text-on-surface-variant">
-                  {editing.document.source.kind === "demo"
-                    ? "4 moments identified from speech and visual cues on your device"
-                    : "Manual clip from your local recording. Analysis is not connected yet."}
+                  {clips.length} moments from your recording
                 </p>
               </div>
               <span className="shrink-0 rounded bg-surface-container-high px-1 py-1 text-label-sm">
-                {editing.document.source.kind === "demo"
-                  ? "Demo Suggestions"
-                  : "Local File"}
+                Analysis results
               </span>
             </div>
             <div
@@ -137,6 +139,9 @@ export function SuggestionsPage() {
                   status: clip.status === "kept" ? "unreviewed" : "kept",
                 })
               }
+              onEdit={() =>
+                editing.dispatch({ type: "enter-editor", id: clip.id })
+              }
               onDismiss={() =>
                 editing.dispatch({
                   type: "review",
@@ -161,7 +166,10 @@ export function SuggestionsPage() {
       <DecisionBar
         clips={editing.document.clips}
         fps={editing.document.source.fps}
-        activeId={active?.id ?? "1"}
+        activeId={active?.id}
+        onEdit={() =>
+          active && editing.dispatch({ type: "enter-editor", id: active.id })
+        }
         onQueue={() => router.push(getStudioSection("clips").href)}
       />
       <p role="status" className="sr-only">
@@ -189,9 +197,7 @@ function SuggestionPreview({
 }) {
   const { document, dispatch } = useEditing();
   const source = document.source;
-  const initial = replay
-    ? clip.inFrame
-    : Math.min(clip.outFrame - 1, clip.inFrame + 33 * source.fps);
+  const initial = replay ? clip.inFrame : clip.inFrame;
   const player = useClipPlayer(initial, source.durationInFrames);
   // This preview and the editor use the same Remotion composition and clip document.
   return (
@@ -252,6 +258,7 @@ function SuggestionPreview({
         </div>
         <Link
           href={editorHref(clip.id)}
+          onClick={() => dispatch({ type: "enter-editor", id: clip.id })}
           className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-surface-container-high px-3 py-2 text-label-md hover:bg-surface-container-highest"
         >
           <Icon name="sliders" size={18} />

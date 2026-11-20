@@ -1,13 +1,11 @@
 import type { StudioAction, StudioState } from "@/types/studio";
-
 export const initialStudioState: StudioState = {
   view: "import",
   selectedVideo: null,
-  progress: 72,
+  reading: false,
   dialog: null,
   error: null,
 };
-
 export function studioReducer(
   state: StudioState,
   action: StudioAction,
@@ -18,19 +16,17 @@ export function studioReducer(
         ...state,
         view: "analysis",
         selectedVideo: action.video,
-        progress: 72,
+        reading: true,
         error: null,
         dialog: null,
       };
-    case "advance-preview":
-      return state.view === "analysis" && state.progress < 100
-        ? { ...state, progress: Math.min(state.progress + 2, 100) }
-        : state;
+    case "video-ready":
+      return { ...state, reading: false };
     case "return-to-import":
       return { ...initialStudioState };
     case "open-dialog":
       return { ...state, dialog: action.dialog };
     case "file-error":
-      return { ...state, error: action.message };
+      return { ...state, reading: false, error: action.message };
   }
 }
