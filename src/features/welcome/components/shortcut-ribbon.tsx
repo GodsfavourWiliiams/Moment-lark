@@ -1,5 +1,5 @@
 import { Icon, Kbd } from "@/components/ui";
-import { editorShortcuts } from "../data/workflow";
+import { EDITOR_SHORTCUTS } from "@/config/shortcuts";
 
 export function ShortcutRibbon() {
   return (
@@ -13,7 +13,7 @@ export function ShortcutRibbon() {
           SYSTEM SHORTCUTS
         </span>
         <ul className="flex flex-wrap items-center gap-space-md font-code text-label-sm">
-          {editorShortcuts.map(({ keys, label }) => (
+          {EDITOR_SHORTCUTS.map(({ keys, label }) => (
             <li key={label} className="flex items-center gap-1.5">
               {keys.map((key) => (
                 <Kbd key={key}>{key}</Kbd>

@@ -1,4 +1,5 @@
 import { Button, Icon } from "@/components/ui";
+import { DEMO_VIDEO } from "@/config/demo";
 import { AudioWaveform } from "./audio-waveform";
 
 export function SampleCard({ onAnalyze }: { onAnalyze: () => void }) {
@@ -21,8 +22,8 @@ export function SampleCard({ onAnalyze }: { onAnalyze: () => void }) {
           className="mb-space-xs flex items-center gap-space-xs text-headline-md font-semibold text-primary"
         >
           <Icon name="movie" className="shrink-0 text-primary-container" />
-          <span className="truncate" title="podcast_founders_cut.mp4">
-            podcast_founders_cut.mp4
+          <span className="truncate" title={DEMO_VIDEO.name}>
+            {DEMO_VIDEO.name}
           </span>
         </h2>
         <p className="mb-space-md text-body-md text-on-surface-variant">
@@ -33,8 +34,8 @@ export function SampleCard({ onAnalyze }: { onAnalyze: () => void }) {
       </div>
       <div className="pt-space-md">
         <Button
+          id="analyze-sample-button"
           onClick={onAnalyze}
-          aria-haspopup="dialog"
           className="group w-full"
         >
           <span>Analyze Sample Video</span>

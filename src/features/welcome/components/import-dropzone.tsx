@@ -1,12 +1,10 @@
 import { useRef, useState, type RefObject } from "react";
 import { Button, Icon } from "@/components/ui";
-import type { SelectedVideo } from "@/types/welcome";
 
 type ImportDropzoneProps = {
   inputRef: RefObject<HTMLInputElement | null>;
   onBrowse: () => void;
   onFiles: (files: FileList) => void;
-  selectedVideo: SelectedVideo | null;
   error: string | null;
 };
 
@@ -14,7 +12,6 @@ export function ImportDropzone({
   inputRef,
   onBrowse,
   onFiles,
-  selectedVideo,
   error,
 }: ImportDropzoneProps) {
   const [dragging, setDragging] = useState(false);
@@ -80,6 +77,7 @@ export function ImportDropzone({
         locally using hardware acceleration.
       </p>
       <Button
+        id="choose-video-button"
         variant="primary"
         className="relative px-space-xl py-3 font-bold tracking-tight"
         onClick={onBrowse}
@@ -116,20 +114,6 @@ export function ImportDropzone({
           H.264 / ProRes / VP9
         </span>
       </div>
-      <p
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className={
-          selectedVideo
-            ? "pointer-events-none relative mt-space-lg max-w-full text-body-sm wrap-anywhere text-tertiary-fixed"
-            : "sr-only"
-        }
-      >
-        {selectedVideo
-          ? `${selectedVideo.name} selected · UI preview only. Video analysis will be connected later.`
-          : ""}
-      </p>
       <p
         role="alert"
         className={

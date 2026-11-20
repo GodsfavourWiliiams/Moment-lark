@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-export function useWelcomeShortcuts({
+export function useStudioShortcuts({
   openPicker,
   openShortcuts,
   dialogOpen,

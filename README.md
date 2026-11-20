@@ -1,8 +1,10 @@
-# ClipFlow · MomentLark
+# Moment Lark
 
-The ClipFlow welcome/import UI, built from the updated Stitch design using Next.js, TypeScript, and Tailwind CSS v4.
+The Moment Lark welcome/import and analysis UI, built from the supplied Stitch designs using Next.js, TypeScript, and Tailwind CSS v4.
 
-This phase is presentation only. File selection displays the filename; it does not read, upload, decode, or cache the media. Sample analysis and workflow navigation open explicit placeholder dialogs. Engine, privacy, codec, and pipeline copy is supplied design content describing the intended product, not an implemented processing engine. Integration will be designed separately.
+This phase is presentation only. File selection captures the filename and size; it does not read, upload, decode, or cache the media. Selecting a file or the sample switches Import to an analysis preview with simulated progress and telemetry. Engine, privacy, codec, and pipeline copy describes the intended product, not an implemented processing engine. Integration will be designed separately.
+
+Analysis is an in-place workflow state on the Import route, not a separate page, URL parameter, or modal. A URL alone cannot restore a local file or processing job. Cancel returns to Import and restores focus to the initiating control. Suggestions becomes available when the preview completes, opening a placeholder until that screen is implemented.
 
 ## Run locally
 
@@ -20,10 +22,14 @@ src/
   app/                 Thin Next.js routes, root layout, global base styles
   components/
     ui/                Shared button, dialog, icon, keyboard hint
-    layout/            Studio navigation/header
-  features/welcome/    index.tsx, screen components, static display data
+    brand/             Logo with mark, text, and both variants
+    layout/            Shared studio header and dialogs
+    providers/         Shared studio context and UI actions
+  config/              Brand, navigation routes, shortcuts, demo fixture
+  features/welcome/    Import screen components and display data
+  features/analysis/   Analysis state view, components, and preview fixtures
   hooks/               UI behavior and keyboard shortcuts
-  state/               One reducer/state file per feature (welcome.ts)
+  state/               Shared workflow reducer (studio.ts) and context
   types/               Shared UI/domain types
   styles/tokens.css    Tailwind theme tokens from Stitch
 ```
@@ -34,7 +40,9 @@ Reserve top-level `services/` for endpoint/API clients and `lib/` for non-API ut
 
 Use Tailwind utilities in components. `src/styles/tokens.css` defines the semantic palette, typography, spacing, radii, and shadows with Tailwind's `@theme`. For example: `bg-surface-container-low`, `text-headline-md`, `gap-space-lg`, and `shadow-neon`. Global CSS contains only the font declaration and shared base styles; there are no component CSS files.
 
-Inter is hosted locally in `public/fonts/`. The supplied brand-image URL returned a Google sign-in page, so the header and favicon use a local SVG scissors fallback. SVG icons do not depend on an external icon font.
+The root layout owns the header, main landmark, provider, and dialogs. `src/config/navigation.ts` is the single source for workflow labels and routes. Future destinations open placeholders until their pages exist.
+
+Inter is hosted locally in `public/fonts/`. `Logo` accepts `variant="mark"`, `variant="text"`, or `variant="both"` (default). The brand mark is a local SVG reconstructed from the supplied visual reference: a dark rounded tile with lime bars and rings joined by a white diagonal connector. Its path is configured in `src/config/brand.ts`; the favicon uses the same artwork. SVG icons do not depend on an external icon font.
 
 The UI includes semantic landmarks/headings, a skip link, keyboard-operable controls, focus outlines, reduced-motion variants, announced file-selection/error states, and native dialogs with Escape handling, focus containment, and focus restoration. Single-letter O opens the picker only while the import section has focus. Cmd/Ctrl+K opens shortcut help. Editor shortcuts are display-only until integration.
 

@@ -1,15 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Logo } from "@/components/brand/logo";
 import { Button, Icon, Kbd } from "@/components/ui";
-import type { StudioSection } from "@/types/welcome";
+import { BRAND } from "@/config/brand";
+import { IMPORT_ROUTE, STUDIO_NAVIGATION } from "@/config/navigation";
+import { useStudio } from "@/hooks/use-studio";
 
-const sections: StudioSection[] = ["Suggestions", "Editor", "Clips", "Export"];
-
-type HeaderProps = {
-  onShortcuts: () => void;
-  onNavigate: (section: StudioSection) => void;
-};
-
-export function StudioHeader({ onShortcuts, onNavigate }: HeaderProps) {
+export function StudioHeader() {
+  const studio = useStudio();
+  const pathname = usePathname();
   return (
     <header className="sticky top-0 z-50 border-b border-surface-container-highest bg-surface/90 backdrop-blur-xl">
       <a
@@ -18,60 +19,74 @@ export function StudioHeader({ onShortcuts, onNavigate }: HeaderProps) {
       >
         Skip to main content
       </a>
-      <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-space-lg px-space-lg md:flex-nowrap">
-        <Link
-          href="/"
-          aria-label="ClipFlow home"
-          className="flex shrink-0 items-center gap-space-md py-space-md"
-        >
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-fixed">
-            <Icon name="scissors" size={24} />
+      <div className="grid min-h-16 grid-cols-[1fr_auto] items-center gap-x-3 px-space-lg xl:grid-cols-[1fr_auto_1fr]">
+        <div className="flex items-center gap-2 py-3">
+          <Link
+            href={IMPORT_ROUTE}
+            onClick={studio.returnToImport}
+            className="group inline-flex shrink-0"
+            aria-label={`${BRAND.name} home`}
+          >
+            <Logo />
+          </Link>
+          <span className="hidden rounded-sm border border-outline-variant/30 bg-surface-container-high px-1.5 py-0.5 text-label-sm font-medium tracking-wide text-on-surface-variant sm:inline-flex">
+            {BRAND.version} • {BRAND.edition}
           </span>
-          <span className="text-headline-md font-bold tracking-tight text-primary">
-            ClipFlow
-          </span>
-          <span className="-ml-2 rounded-sm border border-outline-variant/30 bg-surface-container-high px-space-xs py-0.5 text-label-sm text-on-surface-variant">
-            v1.2
-          </span>
-        </Link>
+        </div>
         <nav
           aria-label="Studio workflow"
-          className="order-3 mb-space-sm w-full overflow-x-auto md:order-none md:mb-0 md:w-auto md:mr-auto"
+          className="order-3 col-span-2 mb-2 overflow-x-auto xl:order-none xl:col-span-1 xl:mb-0"
         >
           <div className="flex w-max items-center rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-1">
-            <a
-              href="#main-content"
-              aria-current="page"
-              className="inline-flex min-h-9 items-center rounded-md bg-primary-container px-space-md text-label-md font-semibold text-on-primary-fixed shadow-nav"
-            >
-              Import
-            </a>
-            {sections.map((section) => (
-              <button
-                key={section}
-                type="button"
-                onClick={(event) => {
-                  event.currentTarget.focus();
-                  onNavigate(section);
-                }}
-                aria-haspopup="dialog"
-                className="min-h-9 rounded-md px-space-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface motion-reduce:transition-none"
-              >
-                {section}
-              </button>
-            ))}
+            {STUDIO_NAVIGATION.map((item) => {
+              const active = pathname === item.href && studio.view === "import";
+              const classes = `inline-flex min-h-9 items-center rounded-md px-space-md text-label-md transition-colors motion-reduce:transition-none ${active ? "bg-primary-container font-semibold text-on-primary-fixed shadow-nav" : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"}`;
+              return item.available ? (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  onClick={studio.returnToImport}
+                  aria-current={active ? "page" : undefined}
+                  className={classes}
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={(event) => {
+                    event.currentTarget.focus();
+                    studio.openSection(item.id);
+                  }}
+                  aria-haspopup="dialog"
+                  className={classes}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
         </nav>
-        <Button
-          onClick={onShortcuts}
-          aria-haspopup="dialog"
-          className="shrink-0 gap-space-xs rounded-md border border-outline-variant/30 px-space-sm py-1.5 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
-        >
-          <span>Shortcuts</span>
-          <span className="hidden lg:inline-flex">
-            <Kbd>⌘K</Kbd>
+        <div className="flex items-center justify-end gap-3">
+          <Button
+            onClick={studio.openShortcuts}
+            aria-haspopup="dialog"
+            className="gap-1.5 rounded-md border border-outline-variant/30 px-2.5 py-1 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+          >
+            <span>Shortcuts</span>
+            <span className="hidden sm:inline-flex">
+              <Kbd>⌘K</Kbd>
+            </span>
+          </Button>
+          <span
+            className="hidden size-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary shadow-sm sm:inline-flex"
+            role="img"
+            aria-label="Local workspace, no account required"
+          >
+            <Icon name="user" size={18} />
           </span>
-        </Button>
+        </div>
       </div>
     </header>
   );

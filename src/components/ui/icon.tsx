@@ -1,6 +1,40 @@
 import type { SVGProps } from "react";
 
 const paths = {
+  video: (
+    <>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6M8 13h5v5H8zM13 15l3-2v5l-3-2" />
+    </>
+  ),
+  check: <path d="m5 12 4 4L19 6" />,
+  spinner: <path d="M21 12a9 9 0 1 1-9-9" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  frame: <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" />,
+  bolt: <path d="m13 2-9 12h7l-1 8 10-13h-7z" />,
+  lock: (
+    <>
+      <rect x="5" y="10" width="14" height="11" rx="2" />
+      <path d="M8 10V6a4 4 0 0 1 8 0v4M12 14v3" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
+    </>
+  ),
   upload: (
     <>
       <path d="M7 18H5a4 4 0 0 1-1-7.9A7 7 0 0 1 17.5 8H18a5 5 0 0 1 1 9.9h-2" />
