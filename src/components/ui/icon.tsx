@@ -1,6 +1,23 @@
 import type { SVGProps } from "react";
 
 const paths = {
+  copy: (
+    <>
+      <rect x="8" y="8" width="13" height="13" rx="2" />
+      <path d="M16 8V3H3v13h5" />
+    </>
+  ),
+  quote: <path d="M3 5h7v7H6v5H3zm11 0h7v7h-4v5h-3z" />,
+  warning: (
+    <>
+      <path d="m12 3 10 18H2zM12 9v5m0 3h.01" />
+    </>
+  ),
+  zip: (
+    <>
+      <path d="M3 20V4h7l3 3h8v13zM14 8v2m0 2v2m0 2v2" />
+    </>
+  ),
   play: <path d="m8 4 12 8-12 8z" fill="currentColor" stroke="none" />,
   pause: <path d="M7 4v16M17 4v16" strokeWidth="5" />,
   backward: (

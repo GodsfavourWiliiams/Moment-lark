@@ -21,6 +21,7 @@ export type CaptionCue = {
   end: number;
 };
 export type ClipDocument = {
+  origin?: { kind: "manual" } | { kind: "suggestion"; ordinal: number };
   id: string;
   ordinal: number;
   title: string;
@@ -58,6 +59,8 @@ export type ClipPatch = Partial<
   >
 >;
 export type EditingAction =
+  | { type: "append"; clip: ClipDocument }
+  | { type: "duplicate"; id: string; newId: string }
   | { type: "load"; document: EditingDocument }
   | { type: "patch"; id: string; patch: ClipPatch }
   | { type: "review"; id: string; status: ReviewStatus }

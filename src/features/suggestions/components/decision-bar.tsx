@@ -55,7 +55,6 @@ export function DecisionBar({
           </Link>
           <button
             type="button"
-            aria-haspopup="dialog"
             onClick={onQueue}
             className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary-container px-4 py-2.5 text-label-md font-bold text-on-primary-fixed shadow-neon hover:brightness-105"
           >

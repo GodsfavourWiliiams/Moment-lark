@@ -1,12 +1,12 @@
 "use client";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
 import { Icon } from "@/components/ui";
 import { WorkspacePane } from "@/components/layout/workspace-panel";
 import { VideoPreview } from "@/components/media/video-preview";
 import { MediaSettings } from "@/components/media/media-settings";
-import { KeptQueue } from "@/components/media/kept-queue";
-import { editorHref } from "@/config/navigation";
+import { editorHref, getStudioSection } from "@/config/navigation";
 import { useEditing } from "@/hooks/use-editing";
 import { useClipPlayer } from "@/hooks/use-clip-player";
 import { timecode, durationLabel } from "@/lib/timecode";
@@ -16,11 +16,11 @@ import { SourceTimeline } from "./components/source-timeline";
 import { DecisionBar } from "./components/decision-bar";
 
 export function SuggestionsPage() {
+  const router = useRouter();
   const editing = useEditing();
   const [activeId, setActiveId] = useState("1");
   const [previewVersion, setPreviewVersion] = useState(0);
   const [filter, setFilter] = useState<SuggestionFilter>("all");
-  const [queue, setQueue] = useState(false);
   const [settings, setSettings] = useState(false);
   const clips = editing.document.clips.filter(
     (clip) => clip.status !== "dismissed",
@@ -162,12 +162,11 @@ export function SuggestionsPage() {
         clips={editing.document.clips}
         fps={editing.document.source.fps}
         activeId={active?.id ?? "1"}
-        onQueue={() => setQueue(true)}
+        onQueue={() => router.push(getStudioSection("clips").href)}
       />
       <p role="status" className="sr-only">
         {editing.announcement}
       </p>
-      <KeptQueue open={queue} onClose={() => setQueue(false)} />
       <MediaSettings
         open={settings}
         onClose={() => setSettings(false)}

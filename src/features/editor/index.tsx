@@ -5,7 +5,6 @@ import { Icon } from "@/components/ui";
 import { WorkspacePane } from "@/components/layout/workspace-panel";
 import { VideoPreview } from "@/components/media/video-preview";
 import { MediaSettings } from "@/components/media/media-settings";
-import { KeptQueue } from "@/components/media/kept-queue";
 import { useEditing } from "@/hooks/use-editing";
 import { useClipPlayer } from "@/hooks/use-clip-player";
 import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
@@ -38,7 +37,6 @@ function EditorWorkspace({ clip }: { clip: ClipDocument }) {
     source.durationInFrames,
   );
   const [settings, setSettings] = useState(false);
-  const [queue, setQueue] = useState(false);
   const patch = (patch: ClipPatch) =>
     editing.dispatch({ type: "patch", id: clip.id, patch });
   const keep = () =>
@@ -192,7 +190,7 @@ function EditorWorkspace({ clip }: { clip: ClipDocument }) {
             next={next}
             onKeep={keep}
             onDiscard={discard}
-            onQueue={() => setQueue(true)}
+            onQueue={() => router.push(getStudioSection("clips").href)}
           />
         </WorkspacePane>
       </div>
@@ -204,7 +202,6 @@ function EditorWorkspace({ clip }: { clip: ClipDocument }) {
         onClose={() => setSettings(false)}
         clip={clip}
       />
-      <KeptQueue open={queue} onClose={() => setQueue(false)} />
     </div>
   );
 }

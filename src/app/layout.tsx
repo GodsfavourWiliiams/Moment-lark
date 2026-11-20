@@ -3,6 +3,7 @@ import { StudioHeader } from "@/components/layout/studio-header";
 import { StudioDialogs } from "@/components/layout/studio-dialogs";
 import { StudioProvider } from "@/components/providers/studio-provider";
 import { EditingProvider } from "@/components/providers/editing-provider";
+import { ExportProvider } from "@/components/providers/export-provider";
 import { BRAND } from "@/config/brand";
 import "./globals.css";
 
@@ -19,17 +20,19 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="min-h-screen antialiased">
         <EditingProvider>
-          <StudioProvider>
-            <StudioHeader />
-            <main
-              id="main-content"
-              tabIndex={-1}
-              className="min-h-[calc(100dvh-4rem)] scroll-mt-32 bg-surface focus:outline-none xl:min-h-0 xl:scroll-mt-16"
-            >
-              {children}
-            </main>
-            <StudioDialogs />
-          </StudioProvider>
+          <ExportProvider>
+            <StudioProvider>
+              <StudioHeader />
+              <main
+                id="main-content"
+                tabIndex={-1}
+                className="min-h-[calc(100dvh-4rem)] scroll-mt-32 bg-surface focus:outline-none xl:min-h-0 xl:scroll-mt-16"
+              >
+                {children}
+              </main>
+              <StudioDialogs />
+            </StudioProvider>
+          </ExportProvider>
         </EditingProvider>
       </body>
     </html>

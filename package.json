@@ -13,6 +13,7 @@
     "@remotion/media": "4.0.545",
     "@remotion/player": "4.0.545",
     "@remotion/web-renderer": "4.0.545",
+    "fflate": "^0.8.3",
     "mediabunny": "1.66.0",
     "next": "16.4.6",
     "react": "19.3.0",

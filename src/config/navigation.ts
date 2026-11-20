@@ -8,8 +8,8 @@ export const STUDIO_NAVIGATION = [
     available: true,
   },
   { id: "editor", label: "Editor", href: "/editor", available: true },
-  { id: "clips", label: "Clips", href: "/clips", available: false },
-  { id: "export", label: "Export", href: "/export", available: false },
+  { id: "clips", label: "Clips", href: "/clips", available: true },
+  { id: "export", label: "Export", href: "/export", available: true },
 ] as const;
 
 export type StudioSectionId = (typeof STUDIO_NAVIGATION)[number]["id"];

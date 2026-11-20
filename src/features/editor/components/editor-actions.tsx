@@ -64,7 +64,6 @@ export function EditorActions({
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <button
           type="button"
-          aria-haspopup="dialog"
           onClick={onQueue}
           className="flex items-center gap-1.5 py-1 text-body-sm text-on-surface-variant hover:text-on-surface"
         >

@@ -46,6 +46,43 @@ export function editingReducer(
         }
       : state;
   }
+  if (action.type === "append" || action.type === "duplicate") {
+    const original =
+      action.type === "duplicate"
+        ? state.document.clips.find((clip) => clip.id === action.id)
+        : null;
+    const clip =
+      action.type === "append"
+        ? action.clip
+        : original
+          ? {
+              ...structuredClone(original),
+              id: action.newId,
+              ordinal:
+                Math.max(
+                  0,
+                  ...state.document.clips.map((item) => item.ordinal),
+                ) + 1,
+              title: `${original.title.slice(0, 53)} (copy)`,
+              status: "kept" as const,
+              origin: original.origin ?? {
+                kind: "suggestion" as const,
+                ordinal: original.ordinal,
+              },
+            }
+          : null;
+    if (!clip || state.document.clips.some((item) => item.id === clip.id))
+      return state;
+    return {
+      document: { ...state.document, clips: [...state.document.clips, clip] },
+      past: [...state.past.slice(-49), state.document],
+      future: [],
+      announcement:
+        action.type === "duplicate"
+          ? "Clip duplicated. Edits are independent."
+          : "Manual clip created.",
+    };
+  }
   const existing = state.document.clips.find((clip) => clip.id === action.id);
   if (!existing) return state;
   let updated: ClipDocument;
