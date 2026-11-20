@@ -19,6 +19,23 @@ npm run dev
 
 Open <http://localhost:3000>. Node.js 20.9+ is required; CI uses Node.js 24.
 
+## Cloudflare Workers deployment
+
+This application uses Next.js `output: "export"`. Deploy the generated `out/` directory as Workers Static Assets using the root `wrangler.jsonc`; no OpenNext server adapter is needed.
+
+Set the Git-connected Worker build settings to:
+
+- Production branch: `master`
+- Root directory: repository root
+- Build command: `pnpm run build`
+- Deploy command: `npx wrangler deploy --config wrangler.jsonc`
+
+The Wrangler configuration must be included in the branch being deployed. It explicitly selects `out/`, serves exported HTML routes such as `/editor` from `editor.html`, and uses the exported `404.html` for unknown paths. Keep `output: "export"` in `next.config.ts`.
+
+Without a Wrangler configuration, automatic Next.js detection can install OpenNext during deployment. OpenNext expects server output under `.next/standalone`, which a static export does not produce, leading to the missing `pages-manifest.json` error. Deploying the static assets avoids that incompatible migration and second build.
+
+References: [Cloudflare static site configuration](https://developers.cloudflare.com/workers/static-assets/routing/static-site-generation/) and [Wrangler automatic configuration](https://developers.cloudflare.com/workers/framework-guides/automatic-configuration/).
+
 ## Structure
 
 ```text
