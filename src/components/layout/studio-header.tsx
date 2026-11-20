@@ -39,13 +39,17 @@ export function StudioHeader() {
         >
           <div className="flex w-max items-center rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-1">
             {STUDIO_NAVIGATION.map((item) => {
-              const active = pathname === item.href && studio.view === "import";
+              const active =
+                pathname === item.href &&
+                (item.id !== "import" || studio.view === "import");
               const classes = `inline-flex min-h-9 items-center rounded-md px-space-md text-label-md transition-colors motion-reduce:transition-none ${active ? "bg-primary-container font-semibold text-on-primary-fixed shadow-nav" : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"}`;
               return item.available ? (
                 <Link
                   key={item.id}
                   href={item.href}
-                  onClick={studio.returnToImport}
+                  onClick={
+                    item.id === "import" ? studio.returnToImport : undefined
+                  }
                   aria-current={active ? "page" : undefined}
                   className={classes}
                 >
