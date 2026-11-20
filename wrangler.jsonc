@@ -1,9 +1,25 @@
 {
   "name": "moment-lark",
   "compatibility_date": "2026-11-20",
+  "previews": {},
   "assets": {
     "directory": "./out",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
+  },
+  "observability": {
+    "enabled": false,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+      "persist": true
+    },
+    "traces": {
+      "enabled": false,
+      "head_sampling_rate": 1,
+      "persist": true
+    }
   }
 }

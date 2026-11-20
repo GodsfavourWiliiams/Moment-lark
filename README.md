@@ -28,7 +28,10 @@ Set the Git-connected Worker build settings to:
 - Production branch: `master`
 - Root directory: repository root
 - Build command: `pnpm run build`
-- Deploy command: `npx wrangler deploy --config wrangler.jsonc`
+- Production deploy command: `npx wrangler deploy --config wrangler.jsonc`
+- Preview deploy command: `npx wrangler preview --config wrangler.jsonc`
+
+The empty `previews` block in `wrangler.jsonc` enables branch previews. Static assets and compatibility settings stay at the top level and apply to previews as well. Use `deploy` for production and `preview` for branch previews; see [Cloudflare preview configuration](https://developers.cloudflare.com/workers/previews/configuration/).
 
 The Wrangler configuration must be included in the branch being deployed. It explicitly selects `out/`, serves exported HTML routes such as `/editor` from `editor.html`, and uses the exported `404.html` for unknown paths. Keep `output: "export"` in `next.config.ts`.
 
