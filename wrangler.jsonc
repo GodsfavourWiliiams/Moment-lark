@@ -1,6 +1,7 @@
 {
   "name": "moment-lark",
   "compatibility_date": "2026-11-20",
+  "previews": {},
   "assets": {
     "directory": "./out",
     "html_handling": "auto-trailing-slash",
