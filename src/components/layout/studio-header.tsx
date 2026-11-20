@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
-import { Button, Icon, Kbd } from "@/components/ui";
+import { Button, Kbd } from "@/components/ui";
 import { BRAND } from "@/config/brand";
 import { IMPORT_ROUTE, STUDIO_NAVIGATION } from "@/config/navigation";
 import { useStudio } from "@/hooks/use-studio";
@@ -29,23 +29,24 @@ export function StudioHeader() {
           >
             <Logo />
           </Link>
-          <span className="hidden rounded-sm border border-outline-variant/30 bg-surface-container-high px-1.5 py-0.5 text-label-sm font-medium tracking-wide text-on-surface-variant sm:inline-flex">
-            {BRAND.version} • {BRAND.edition}
-          </span>
         </div>
         <nav
           aria-label="Studio workflow"
-          className="order-3 col-span-2 mb-2 overflow-x-auto xl:order-none xl:col-span-1 xl:mb-0"
+          className="order-3 col-span-2 mb-2 overflow-x-auto xl:order-0 xl:col-span-1 xl:mb-0"
         >
-          <div className="flex w-max items-center rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-1">
+          <div className="flex w-max items-center rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-1">
             {STUDIO_NAVIGATION.map((item) => {
-              const active = pathname === item.href && studio.view === "import";
-              const classes = `inline-flex min-h-9 items-center rounded-md px-space-md text-label-md transition-colors motion-reduce:transition-none ${active ? "bg-primary-container font-semibold text-on-primary-fixed shadow-nav" : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"}`;
+              const active =
+                pathname === item.href &&
+                (item.id !== "import" || studio.view === "import");
+              const classes = `inline-flex min-h-9 items-center rounded-lg px-space-md text-label-md transition-colors motion-reduce:transition-none ${active ? "bg-primary-container font-semibold text-on-primary-fixed shadow-nav" : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"}`;
               return item.available ? (
                 <Link
                   key={item.id}
                   href={item.href}
-                  onClick={studio.returnToImport}
+                  onClick={
+                    item.id === "import" ? studio.returnToImport : undefined
+                  }
                   aria-current={active ? "page" : undefined}
                   className={classes}
                 >
@@ -72,20 +73,13 @@ export function StudioHeader() {
           <Button
             onClick={studio.openShortcuts}
             aria-haspopup="dialog"
-            className="gap-1.5 rounded-md border border-outline-variant/30 px-2.5 py-1 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+            className="gap-1.5 rounded-xl border border-outline-variant/30 px-2.5 py-1 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
           >
             <span>Shortcuts</span>
             <span className="hidden sm:inline-flex">
               <Kbd>⌘K</Kbd>
             </span>
           </Button>
-          <span
-            className="hidden size-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary shadow-sm sm:inline-flex"
-            role="img"
-            aria-label="Local workspace, no account required"
-          >
-            <Icon name="user" size={18} />
-          </span>
         </div>
       </div>
     </header>

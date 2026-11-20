@@ -13,7 +13,13 @@ export function useStudioShortcuts({
 }) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat || dialogOpen) return;
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        dialogOpen ||
+        document.querySelector("dialog[open]")
+      )
+        return;
       const target = event.target;
       if (
         target instanceof HTMLElement &&

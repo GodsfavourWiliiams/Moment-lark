@@ -42,8 +42,12 @@ export function StudioDialogs() {
               </div>
             </dl>
             <h3 className="text-body-lg font-semibold text-primary">
-              Editor shortcuts · coming with integration
+              Editor shortcuts
             </h3>
+            <p>
+              Single-letter shortcuts work while the editor workspace has focus.
+              Text fields keep their normal editing keys.
+            </p>
             <dl className="space-y-space-md">
               {EDITOR_SHORTCUTS.map(({ keys, label }) => (
                 <div
@@ -67,8 +71,9 @@ export function StudioDialogs() {
               next phase.
             </p>
             <p>
-              This build is a UI preview. Media processing, storage, and export
-              integrations are not connected yet.
+              You can review kept clips and export a local video from the queue
+              inside Suggestions or Editor. The dedicated workspace design is
+              still pending.
             </p>
             <Button onClick={closeDialog}>Back to workspace</Button>
           </>
