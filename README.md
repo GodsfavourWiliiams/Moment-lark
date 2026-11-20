@@ -1,6 +1,6 @@
 # MomentLark
 
-MomentLark is a browser-based workspace for finding and refining short clips from longer videos. The first development slice establishes the app shell and local video import. AI suggestions, editing, and export will be built in subsequent changes.
+MomentLark is a browser-based workspace for finding and refining short clips from longer videos. This initial setup contains the project tooling and a minimal placeholder page. The interface will be built from the supplied Stitch HTML in a subsequent change.
 
 ## Stack
 
