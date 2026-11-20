@@ -19,7 +19,7 @@ export function DecisionBar({
   return (
     <aside
       aria-label="Review decisions"
-      className="sticky bottom-0 z-40 w-full bg-surface-container-lowest/95 px-space-lg py-space-md shadow-2xl backdrop-blur-xl"
+      className="sticky bottom-0 z-40 w-full shrink-0 bg-surface-container-lowest/95 px-space-lg py-space-md shadow-2xl backdrop-blur-xl"
     >
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-space-md sm:flex-row">
         <div className="flex items-center gap-space-md">

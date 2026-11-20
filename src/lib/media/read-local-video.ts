@@ -49,7 +49,7 @@ export async function readLocalVideo(
           outFrame: out,
           originalIn: 0,
           originalOut: out,
-          aspect: "9:16",
+          aspect: "original",
           cropX: 0.5,
           centered: true,
           captions: [],

@@ -49,7 +49,7 @@ export function SuggestionCard({
               <Icon name="movie" size={32} />
             </span>
           )}
-          {selected && (
+          {selected && clip.aspect !== "original" && (
             <span className="absolute inset-x-2 inset-y-1 rounded border border-primary-fixed/80" />
           )}
           <span

@@ -1,5 +1,5 @@
 import { ClipComposition } from "@/components/media/clip-composition";
-import { OUTPUT_SIZE } from "@/lib/clip-geometry";
+import { outputSize } from "@/lib/clip-geometry";
 import type { ClipDocument, MediaSource } from "@/types/editing";
 
 export async function exportClip(
@@ -14,7 +14,7 @@ export async function exportClip(
     );
   const { canRenderMediaOnWeb, renderMediaOnWeb } =
     await import("@remotion/web-renderer");
-  const size = OUTPUT_SIZE[clip.aspect];
+  const size = outputSize(clip.aspect, source);
   const support = await canRenderMediaOnWeb({
     ...size,
     container: "mp4",

@@ -6,7 +6,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { Video } from "@remotion/media";
-import { cropGuide } from "@/lib/clip-geometry";
+import { mediaRect, outputSize, previewGeometry } from "@/lib/clip-geometry";
 import type { ClipDocument, MediaSource } from "@/types/editing";
 
 export type ClipCompositionProps = {
@@ -30,25 +30,19 @@ export function ClipComposition({
   const frame = useCurrentFrame();
   const { width, height, fps } = useVideoConfig();
   const sourceFrame = frame + startFrame;
-  const guide = preview ? cropGuide(clip.aspect) : { width, height };
-  const area = {
-    width: guide.width,
-    height: guide.height,
-    left: preview ? (width - guide.width) * clip.cropX : 0,
-  };
-  const scale =
-    area.width /
-    (clip.aspect === "9:16" || clip.aspect === "1:1" ? 1080 : 1920);
-  const sourceScale = Math.max(width / source.width, height / source.height);
-  const videoWidth = source.width * sourceScale;
-  const videoHeight = source.height * sourceScale;
+  const geometry = previewGeometry(source, clip.aspect, clip.cropX, {
+    width,
+    height,
+  });
+  const area = preview ? geometry.crop : { width, height, left: 0, top: 0 };
+  const target = outputSize(clip.aspect, source);
+  const scale = area.width / (target.width / target.height < 1.5 ? 1080 : 1920);
   const mediaStyle = {
     position: "absolute" as const,
-    width: videoWidth,
-    height: videoHeight,
+    ...(preview
+      ? geometry.media
+      : mediaRect(source, { width, height }, "cover", clip.cropX)),
     maxWidth: "none",
-    left: (width - videoWidth) * clip.cropX,
-    top: (height - videoHeight) / 2,
   };
   const caption = captionsVisible
     ? clip.captions.find(
@@ -62,15 +56,9 @@ export function ClipComposition({
       {source.url ? (
         <Video src={source.url} trimBefore={startFrame} style={mediaStyle} />
       ) : (
-        <Img
-          src={poster}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
+        <Img src={poster} style={{ ...mediaStyle, objectFit: "cover" }} />
       )}
-      <div
-        className="absolute top-0"
-        style={{ left: area.left, width: area.width, height: area.height }}
-      >
+      <div className="absolute" style={area}>
         {showTitle && (
           <div
             className="absolute text-center font-bold text-white"

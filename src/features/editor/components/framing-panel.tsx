@@ -1,5 +1,5 @@
 import { Icon } from "@/components/ui";
-import type { AspectRatio, ClipDocument, ClipPatch } from "@/types/editing";
+import type { ClipDocument, ClipPatch } from "@/types/editing";
 
 export function FramingPanel({
   clip,
@@ -32,7 +32,7 @@ export function FramingPanel({
       >
         {(
           [
-            { value: "16:9", label: "Original", icon: "aspect" },
+            { value: "original", label: "Original", icon: "aspect" },
             { value: "9:16", label: "Vertical", icon: "portrait" },
             { value: "1:1", label: "Square", icon: "square" },
           ] as const
@@ -41,47 +41,54 @@ export function FramingPanel({
             key={value}
             type="button"
             aria-pressed={clip.aspect === value}
-            onClick={() => onPatch({ aspect: value as AspectRatio })}
+            onClick={() => onPatch({ aspect: value })}
             className={`flex flex-col items-center gap-1 rounded-md px-1 py-2 text-label-md transition-colors ${clip.aspect === value ? "bg-primary-container font-bold text-on-primary-fixed shadow-nav" : "font-medium text-on-surface-variant hover:bg-surface-container hover:text-on-surface"}`}
           >
             <Icon name={icon} size={18} />
-            {value} {label}
+            {value !== "original" && `${value} `}
+            {label}
           </button>
         ))}
       </div>
-      <div className="flex items-center justify-between gap-2 rounded-lg bg-surface-container p-2 shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-container-high text-primary-fixed">
-            <Icon name="face" size={18} />
-          </span>
-          <div>
-            <span className="text-label-md font-semibold">
-              Auto-center speaker
+      {clip.aspect === "original" ? (
+        <p className="text-body-sm text-on-surface-variant">
+          Full original frame. No cropping or resizing.
+        </p>
+      ) : (
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-surface-container p-2 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-container-high text-primary-fixed">
+              <Icon name="face" size={18} />
             </span>
-            <p className="text-body-sm text-on-surface-variant">
-              Center crop · speaker tracking pending
-            </p>
+            <div>
+              <span className="text-label-md font-semibold">
+                Auto-center speaker
+              </span>
+              <p className="text-body-sm text-on-surface-variant">
+                Center crop · speaker tracking pending
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            role="switch"
+            aria-label="Center crop (speaker tracking not connected)"
+            aria-checked={clip.centered}
+            onClick={() =>
+              onPatch({
+                centered: !clip.centered,
+                ...(!clip.centered ? { cropX: 0.5 } : {}),
+              })
+            }
+            className={`relative h-6 w-11 shrink-0 rounded-full ${clip.centered ? "bg-primary-container" : "bg-surface-container-highest"}`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-primary-fixed transition-transform motion-reduce:transition-none ${clip.centered ? "translate-x-5" : ""}`}
+            />
+          </button>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-label="Center crop (speaker tracking not connected)"
-          aria-checked={clip.centered}
-          onClick={() =>
-            onPatch({
-              centered: !clip.centered,
-              ...(!clip.centered ? { cropX: 0.5 } : {}),
-            })
-          }
-          className={`relative h-6 w-11 shrink-0 rounded-full ${clip.centered ? "bg-primary-container" : "bg-surface-container-highest"}`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-primary-fixed transition-transform motion-reduce:transition-none ${clip.centered ? "translate-x-5" : ""}`}
-          />
-        </button>
-      </div>
-      {!clip.centered && (
+      )}
+      {clip.aspect !== "original" && !clip.centered && (
         <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
           Manual horizontal position
           <input

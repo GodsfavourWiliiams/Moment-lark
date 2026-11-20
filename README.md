@@ -6,7 +6,7 @@ The Import, in-place Analysis preview, Suggestions (`/suggestions`), and Editor 
 
 The media foundation uses **Remotion Player**, **@remotion/media**, and **@remotion/web-renderer**. The UI retains the supplied layout and controls; Remotion handles composition playback and rendering. One composition drives preview and export. Mediabunny reads local metadata and samples bounded audio windows for the timeline.
 
-Local file import creates one manual clip. Playback, frame-grid trim controls, 16:9 / 9:16 / 1:1 crops, manual horizontal crop positioning, title overlays, timed captions, undo/redo, keep/dismiss, and a kept-clip queue are implemented. The queue can request an H.264/AAC MP4 render, show progress, cancel, and download the result on supported browsers. Demo still images cannot be exported as video.
+Local file import creates one manual clip. Playback, frame-grid trim controls, original source framing by default, optional 9:16 / 1:1 crops, manual horizontal crop positioning, title overlays, timed captions, undo/redo, keep/dismiss, and a kept-clip queue are implemented. The queue can request an H.264/AAC MP4 render, show progress, cancel, and download the result on supported browsers. Demo still images cannot be exported as video.
 
 Automatic transcription, AI highlight ranking, active-speaker tracking, persistent project storage, batch export, and dedicated Clips/Export pages remain future work. Analysis is still a clearly marked simulation on the Import route. A reload resets the editing session; a URL cannot restore a local File.
 
@@ -58,7 +58,7 @@ The UI includes semantic landmarks/headings, a skip link, keyboard-operable cont
 
 Codec decoding and H.264/AAC encoding depend on browser capabilities; unsupported files and export configurations produce errors rather than silent success. MOV is a container, not a promise that every ProRes variant will decode. The timeline uses a normalized frame grid derived from the source; variable-frame-rate recordings are not guaranteed source-frame-exact cuts. Exports re-encode rather than performing lossless bitstream copying.
 
-The current preview is designed around landscape source footage, matching the supplied design. Arbitrary source aspect ratios and rotation metadata need additional preview/export parity testing before production. Long-file memory, cancellation, codec coverage, and browser compatibility also require a broader media test matrix.
+Original framing preserves source dimensions on export and fits the full source into the preview without cropping. Geometry tests cover landscape, portrait, square, and 4:3 sources, including preview/export crop alignment. Rotated-file metadata still needs a broader real-media test matrix. Long-file memory, cancellation, codec coverage, and browser compatibility also require a broader media test matrix.
 
 Remotion's [license terms](https://www.remotion.dev/license) apply. Where required, configure `NEXT_PUBLIC_REMOTION_LICENSE_KEY` at build time; this is a browser-visible license key, not a private API credential. The web renderer reports usage/licensing metadata to Remotion. Media processing stays local, but the application must not be described as fully air-gapped or telemetry-free. The existing welcome/analysis pipeline copy describes the intended product, not all current capabilities.
 

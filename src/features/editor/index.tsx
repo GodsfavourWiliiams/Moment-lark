@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
+import { WorkspacePane } from "@/components/layout/workspace-panel";
 import { VideoPreview } from "@/components/media/video-preview";
 import { MediaSettings } from "@/components/media/media-settings";
 import { KeptQueue } from "@/components/media/kept-queue";
@@ -65,15 +66,18 @@ function EditorWorkspace({ clip }: { clip: ClipDocument }) {
       data-editor-workspace
       tabIndex={0}
       aria-label="Video editor workspace"
-      className="flex w-full flex-col"
+      className="flex w-full flex-col xl:h-[calc(100dvh-4rem-1px)] xl:overflow-hidden"
     >
       <EditorContextBar
         clip={clip}
         clips={clips}
         onSettings={() => setSettings(true)}
       />
-      <div className="grid min-h-[calc(100dvh-7.5rem)] grid-cols-1 items-start gap-space-md bg-surface p-space-md xl:grid-cols-12">
-        <div className="flex min-w-0 flex-col gap-space-md xl:col-span-7 2xl:col-span-8">
+      <div className="grid min-h-[calc(100dvh-7.5rem)] grid-cols-1 items-start gap-space-md bg-surface p-space-md xl:min-h-0 xl:flex-1 xl:grid-cols-12 xl:items-stretch xl:overflow-hidden">
+        <WorkspacePane
+          aria-label="Video preview and timeline"
+          className="xl:col-span-7 2xl:col-span-8"
+        >
           <VideoPreview
             source={source}
             clip={clip}
@@ -148,8 +152,11 @@ function EditorWorkspace({ clip }: { clip: ClipDocument }) {
                 : "Local editing · session only"}
             </span>
           </div>
-        </div>
-        <div className="flex min-w-0 flex-col gap-space-md xl:col-span-5 2xl:col-span-4">
+        </WorkspacePane>
+        <WorkspacePane
+          aria-label="Clip settings"
+          className="xl:col-span-5 2xl:col-span-4"
+        >
           <FramingPanel clip={clip} onPatch={patch} />
           <section className="flex flex-col gap-space-sm rounded-xl bg-surface-container-low p-space-md shadow-md">
             <div className="flex items-center justify-between gap-2">
@@ -187,7 +194,7 @@ function EditorWorkspace({ clip }: { clip: ClipDocument }) {
             onDiscard={discard}
             onQueue={() => setQueue(true)}
           />
-        </div>
+        </WorkspacePane>
       </div>
       <p role="status" className="sr-only">
         {editing.announcement}

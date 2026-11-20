@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Icon } from "@/components/ui";
+import { WorkspacePane } from "@/components/layout/workspace-panel";
 import { VideoPreview } from "@/components/media/video-preview";
 import { MediaSettings } from "@/components/media/media-settings";
 import { KeptQueue } from "@/components/media/kept-queue";
@@ -29,8 +30,8 @@ export function SuggestionsPage() {
     (clip) => filter === "all" || clip.status === filter,
   );
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
-      <div className="grid w-full flex-1 items-start gap-space-lg px-space-lg py-space-md xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col xl:h-[calc(100dvh-4rem-1px)] xl:min-h-0 xl:overflow-hidden">
+      <div className="grid w-full flex-1 items-start gap-space-lg px-space-lg py-space-md xl:min-h-0 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-stretch xl:overflow-hidden">
         {active ? (
           <SuggestionPreview
             key={`${editing.document.source.id}-${active.id}-${previewVersion}`}
@@ -55,9 +56,9 @@ export function SuggestionsPage() {
             </button>
           </div>
         )}
-        <section
+        <WorkspacePane
           aria-labelledby="suggestions-heading"
-          className="flex min-w-0 flex-col gap-space-md"
+          className="xl:-m-0.5 xl:p-0.5"
         >
           <div className="flex flex-col gap-space-sm">
             <div className="flex items-start justify-between gap-2">
@@ -155,7 +156,7 @@ export function SuggestionsPage() {
                 : "No suggestions in this filter."}
             </p>
           )}
-        </section>
+        </WorkspacePane>
       </div>
       <DecisionBar
         clips={editing.document.clips}
@@ -195,10 +196,7 @@ function SuggestionPreview({
   const player = useClipPlayer(initial, source.durationInFrames);
   // This preview and the editor use the same Remotion composition and clip document.
   return (
-    <section
-      aria-label="Suggestion preview"
-      className="flex min-w-0 flex-col gap-space-md"
-    >
+    <WorkspacePane aria-label="Suggestion preview">
       <VideoPreview
         source={source}
         clip={clip}
@@ -214,7 +212,7 @@ function SuggestionPreview({
                 clip.aspect === "9:16"
                   ? "1:1"
                   : clip.aspect === "1:1"
-                    ? "16:9"
+                    ? "original"
                     : "9:16",
             },
           })
@@ -261,6 +259,6 @@ function SuggestionPreview({
           Manual Trimmer Mode
         </Link>
       </div>
-    </section>
+    </WorkspacePane>
   );
 }

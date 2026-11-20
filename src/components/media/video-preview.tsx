@@ -8,6 +8,7 @@ import { CropGuides } from "./crop-guides";
 import { PlaybackControls } from "./playback-controls";
 import { MediaButton } from "./media-button";
 import { MediaRange } from "./media-range";
+import { PREVIEW_SIZE } from "@/lib/clip-geometry";
 
 export function VideoPreview({
   source,
@@ -29,6 +30,8 @@ export function VideoPreview({
   const [guides, setGuides] = useState(true);
   const [grid, setGrid] = useState(false);
   const [zoom, setZoom] = useState(false);
+  const reframed = clip.aspect !== "original";
+  const showCropGuides = reframed && guides;
   return (
     <div
       ref={attachContainer}
@@ -50,7 +53,9 @@ export function VideoPreview({
               className={`size-1.5 rounded-full ${editor ? "bg-primary-container" : "bg-on-primary-fixed"}`}
             />
             {editor
-              ? `${clip.aspect} Crop Guides ${guides ? "ON" : "OFF"}`
+              ? reframed
+                ? `${clip.aspect} Crop Guides ${showCropGuides ? "ON" : "OFF"}`
+                : "Original · No crop"
               : `CLIP ${String(clip.ordinal).padStart(2, "0")} PREVIEW`}
           </span>
           <span
@@ -72,8 +77,15 @@ export function VideoPreview({
           )}
           <MediaButton
             icon={editor ? "grid" : "portrait"}
-            label={editor ? "Toggle grid overlay" : "Toggle crop guides"}
-            aria-pressed={editor ? grid : guides}
+            label={
+              editor
+                ? "Toggle grid overlay"
+                : reframed
+                  ? "Toggle crop guides"
+                  : "Crop guides off · Original format"
+            }
+            disabled={!editor && !reframed}
+            aria-pressed={editor ? grid : showCropGuides}
             onClick={() => (editor ? setGrid(!grid) : setGuides(!guides))}
             size="sm"
             variant="ghost"
@@ -115,8 +127,8 @@ export function VideoPreview({
             }}
             durationInFrames={source.durationInFrames}
             fps={source.fps}
-            compositionWidth={1920}
-            compositionHeight={1080}
+            compositionWidth={PREVIEW_SIZE.width}
+            compositionHeight={PREVIEW_SIZE.height}
             initialFrame={controls.frame}
             inFrame={editor ? clip.inFrame : undefined}
             outFrame={editor ? clip.outFrame - 1 : undefined}
@@ -136,7 +148,14 @@ export function VideoPreview({
               </div>
             )}
           />
-          {guides && <CropGuides clip={clip} editor={editor} grid={grid} />}
+          {(showCropGuides || grid) && (
+            <CropGuides
+              clip={clip}
+              source={source}
+              editor={editor}
+              grid={grid}
+            />
+          )}
         </div>
         {editor && (
           <div className="relative sm:absolute sm:inset-x-0 sm:bottom-0">

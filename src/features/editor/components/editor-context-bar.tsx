@@ -16,7 +16,7 @@ export function EditorContextBar({
   const stepClass =
     "inline-flex min-h-7 items-center gap-1 rounded bg-surface-container px-2 py-1 text-label-sm text-on-surface-variant hover:text-on-surface";
   return (
-    <div className="flex w-full flex-wrap items-center justify-between gap-space-md bg-surface-container-lowest px-space-lg py-space-sm shadow-sm">
+    <div className="flex w-full shrink-0 flex-wrap items-center justify-between gap-space-md bg-surface-container-lowest px-space-lg py-space-sm shadow-sm">
       <div className="flex min-w-0 items-center gap-space-md">
         <Link
           href={getStudioSection("suggestions").href}

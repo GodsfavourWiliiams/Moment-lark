@@ -24,7 +24,7 @@ export default function RootLayout({
             <main
               id="main-content"
               tabIndex={-1}
-              className="min-h-[calc(100dvh-4rem)] scroll-mt-32 bg-surface focus:outline-none xl:scroll-mt-16"
+              className="min-h-[calc(100dvh-4rem)] scroll-mt-32 bg-surface focus:outline-none xl:min-h-0 xl:scroll-mt-16"
             >
               {children}
             </main>

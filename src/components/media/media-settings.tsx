@@ -25,7 +25,7 @@ export function MediaSettings({
             ? "The supplied design uses still images and example suggestions. Open a local video for real playback, trimming, captions, and MP4 export. Your video stays on this device."
             : `Editing ${document.source.name}. Changes stay in this browser session.`}
         </p>
-        {clip && (
+        {clip && clip.aspect !== "original" && (
           <label className="flex flex-col gap-2 text-label-md">
             Horizontal crop position
             <input
