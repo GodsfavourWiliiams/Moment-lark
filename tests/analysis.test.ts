@@ -27,7 +27,7 @@ const props = {
 test("analysis retains stage and telemetry content, previews the imported source, and has no manual continue action", () => {
   const html = renderToStaticMarkup(createElement(AnalysisView, props));
   for (const title of [
-    "Downloading on-device AI models",
+    "Loading on-device AI models",
     "Transcribing &amp; analyzing speech",
     "Detecting sound events",
     "Preparing ranked clip suggestions",
@@ -69,4 +69,21 @@ test("analysis displays supplied progress and measurements without inventing the
   assert.match(html, /120 WPM/);
   assert.match(html, /Frame 150/);
   assert.doesNotMatch(html, /Proceed to Suggestions/);
+});
+
+test("a later missing model asks only for that download, while keeping cancellation available", () => {
+  const html = renderToStaticMarkup(
+    createElement(AnalysisView, {
+      ...props,
+      snapshot: {
+        stage: 3,
+        downloadRequest: { id: "sound-request", model: "sound" },
+      },
+      onApproveDownload: () => {},
+    }),
+  );
+  assert.match(html, /AudioSet AST \(about 91 MB\)/);
+  assert.match(html, /Download &amp; continue/);
+  assert.match(html, /Cancel analysis/);
+  assert.doesNotMatch(html, /869 MB|206 MB/);
 });

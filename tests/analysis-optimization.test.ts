@@ -21,6 +21,7 @@ import {
   stageThroughput,
 } from "../src/lib/analysis/options";
 import { AnalysisView } from "../src/features/analysis";
+import { AnalysisStages } from "../src/features/analysis/components/analysis-stages";
 import { initialStudioState, studioReducer } from "../src/state/studio";
 import {
   analysisProvenanceSchema,
@@ -33,7 +34,7 @@ test("short videos warn, sub-six-second videos block, and long videos have no du
   assert.match(sourceGuidance(28).message, /already short/);
   assert.match(sourceGuidance(7200).message, /long recording/);
   assert.equal(sourceGuidance(7200).blocked, false);
-  assert.equal(DEFAULT_ANALYSIS_OPTIONS.soundEvents, false);
+  assert.equal(DEFAULT_ANALYSIS_OPTIONS.soundEvents, true);
   let state = studioReducer(initialStudioState, {
     type: "start-analysis",
     video: { name: "small.mp4", size: 100 },
@@ -47,7 +48,7 @@ test("short videos warn, sub-six-second videos block, and long videos have no du
   );
 });
 
-test("preflight names model/download costs and does not require a sound scan", () => {
+test("preflight prepares saved speech without a manual Start or download notice", () => {
   const html = renderToStaticMarkup(
     createElement(AnalysisView, {
       video: { name: "small.mp4", size: 1024 },
@@ -69,16 +70,12 @@ test("preflight names model/download costs and does not require a sound scan", (
       onCancel: () => {},
     }),
   );
-  for (const label of [
-    "already short",
-    "Whisper Base",
-    "Qwen2.5 1.5B",
-    "AudioSet AST",
-    "869 MB",
-    "Start local analysis",
-  ])
-    assert.ok(html.includes(label));
-  assert.doesNotMatch(html, /checked=""/);
+  assert.match(html, /Loading saved speech model/);
+  assert.doesNotMatch(
+    html,
+    /Start analysis|Import or export saved models|869 MB|91 MB/,
+  );
+  assert.doesNotMatch(html, /type="checkbox"/);
   assert.doesNotMatch(html, /Proceed to Suggestions/);
 });
 
@@ -88,6 +85,15 @@ test("throughput is measured only after enough audio and estimates just the curr
     speed: 2,
     remainingSeconds: 30,
   });
+});
+
+test("prepared speech appears ready while transcription and later models remain pending", () => {
+  const html = renderToStaticMarkup(
+    createElement(AnalysisStages, { complete: false, speechReady: true }),
+  );
+  assert.match(html, /Speech model ready/);
+  assert.doesNotMatch(html, /In progress/);
+  assert.equal((html.match(/Pending:/g) ?? []).length, 3);
 });
 
 test("token packing reduces representative ranking calls without exceeding tokenizer budgets", async () => {

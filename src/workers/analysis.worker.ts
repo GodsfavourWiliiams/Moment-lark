@@ -19,16 +19,62 @@ import {
   SPEECH_MODEL,
   SOUND_MODEL,
   RANK_MODEL,
-  RANK_REVISION,
+  RANK_MODEL_URL,
+  RANK_LIBRARY_URL,
 } from "../lib/analysis/models";
 import type { AnalysisRequest, AnalysisEvent } from "../lib/analysis/protocol";
+import type { ModelDownloadApproval } from "../lib/analysis/protocol";
+import { ModelDownloadGate } from "../lib/analysis/model-download-gate";
 import { stageThroughput, sourceGuidance } from "../lib/analysis/options";
+import { createModelAssetCache } from "../lib/analysis/model-assets";
+import { inspectModels } from "../lib/analysis/model-storage";
 import type { AnalysisSnapshot } from "../types/analysis";
 
 function send(event: AnalysisEvent) {
   self.postMessage(event);
 }
 let snapshot: AnalysisSnapshot = {};
+type ModelProgress = { status: string; file?: string; progress?: number };
+async function createSpeech(
+  cachedOnly: boolean,
+  progress_callback?: (event: ModelProgress) => void,
+) {
+  const { pipeline, env } = await import("@huggingface/transformers");
+  env.allowLocalModels = cachedOnly;
+  env.allowRemoteModels = !cachedOnly;
+  env.customCache = await createModelAssetCache(self.location.origin);
+  env.useCustomCache = true;
+  if (env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1;
+  return pipeline("automatic-speech-recognition", SPEECH_MODEL.id, {
+    revision: SPEECH_MODEL.revision,
+    device: "webgpu",
+    dtype: { encoder_model: "fp32", decoder_model_merged: "q4" },
+    local_files_only: cachedOnly,
+    progress_callback,
+  });
+}
+let preparedSpeech: Awaited<ReturnType<typeof createSpeech>> | undefined;
+async function prepare() {
+  const models = await inspectModels();
+  let error: string | undefined;
+  if (models.speech === "ready") {
+    try {
+      // Real initialization, restricted to saved weights. No transcription or guest slot.
+      preparedSpeech = await createSpeech(true);
+    } catch (cause) {
+      error =
+        cause instanceof Error
+          ? cause.message
+          : "Could not load the saved speech model.";
+    }
+  }
+  send({
+    type: "prepared",
+    preparation: { models, speechReady: Boolean(preparedSpeech), error },
+  });
+}
+let preparation: Promise<void> = Promise.resolve();
+const downloadGate = new ModelDownloadGate();
 function report(update: AnalysisSnapshot) {
   snapshot = {
     ...snapshot,
@@ -39,6 +85,20 @@ function report(update: AnalysisSnapshot) {
 }
 
 async function analyze({ file, source, options }: AnalysisRequest) {
+  const requireModel = async (model: "speech" | "sound" | "ranking") => {
+    if (
+      options.allowModelDownloads ||
+      (await inspectModels())[model] === "ready"
+    )
+      return;
+    await downloadGate.wait(model, (downloadRequest) =>
+      report({
+        downloadRequest,
+        detail: "Waiting for model download approval…",
+      }),
+    );
+    report({ downloadRequest: null, detail: "Loading model…" });
+  };
   const duration = source.durationInFrames / source.fps;
   const guidance = sourceGuidance(duration);
   if (guidance.blocked) throw new Error(guidance.message);
@@ -51,6 +111,17 @@ async function analyze({ file, source, options }: AnalysisRequest) {
     const begin = performance.now();
     try {
       return await task();
+    } catch (error) {
+      if (
+        ["speechLoad", "soundLoad", "rankerLoad"].includes(name) &&
+        error instanceof Error &&
+        /failed to fetch|networkerror|load failed/i.test(error.message)
+      ) {
+        throw new Error(
+          "The browser could not download an AI model file. Check your connection and whether this browser or network blocks Hugging Face, then retry. Already saved model files will be reused when available.",
+        );
+      }
+      throw error;
     } finally {
       timings[name] = Math.round(performance.now() - begin);
     }
@@ -88,6 +159,9 @@ async function analyze({ file, source, options }: AnalysisRequest) {
       );
     const { pipeline, env } = await import("@huggingface/transformers");
     env.allowLocalModels = false;
+    env.allowRemoteModels = true;
+    env.customCache = await createModelAssetCache(self.location.origin);
+    env.useCustomCache = true;
     if (env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1;
     // Package default remote WASM paths match its pinned ONNX Runtime version.
     const progress_callback = (event: {
@@ -101,14 +175,14 @@ async function analyze({ file, source, options }: AnalysisRequest) {
         });
     };
     const evidence: Evidence[] = [];
-    const speech = await measure("speechLoad", () =>
-      pipeline("automatic-speech-recognition", SPEECH_MODEL.id, {
-        revision: SPEECH_MODEL.revision,
-        device: "webgpu",
-        dtype: { encoder_model: "fp32", decoder_model_merged: "q4" },
-        progress_callback,
-      }),
-    );
+    if (!preparedSpeech) await requireModel("speech");
+    const speech =
+      preparedSpeech ??
+      (await measure("speechLoad", () =>
+        createSpeech(false, progress_callback),
+      ));
+    if (preparedSpeech) timings.speechLoad = 0;
+    preparedSpeech = undefined;
     const transcriptionStart = performance.now();
     try {
       report({
@@ -169,7 +243,7 @@ async function analyze({ file, source, options }: AnalysisRequest) {
       0,
     );
     let eventCount = 0;
-    if (options.soundEvents) {
+    {
       report({
         stage: 3,
         progress: 55,
@@ -179,6 +253,7 @@ async function analyze({ file, source, options }: AnalysisRequest) {
         timing: "Loading sound model…",
       });
       // Run models sequentially to avoid retaining speech + sound + LLM allocations together.
+      await requireModel("sound");
       const classifier = await measure("soundLoad", () =>
         pipeline("audio-classification", SOUND_MODEL.id, {
           revision: SOUND_MODEL.revision,
@@ -226,17 +301,6 @@ async function analyze({ file, source, options }: AnalysisRequest) {
         timings.soundScan = Math.round(performance.now() - soundStart);
         await classifier.dispose();
       }
-    } else {
-      report({
-        stage: 3,
-        progress: 75,
-        speechWpm: Math.round(words / (duration / 60)),
-        soundScanSkipped: true,
-        stageResults: {
-          2: `${evidence.length} speech segments`,
-          3: "Skipped · speech only",
-        },
-      });
     }
     report({
       stage: 4,
@@ -244,9 +308,7 @@ async function analyze({ file, source, options }: AnalysisRequest) {
       detail: "Loading local clip-selection model…",
       timing: "Model loading is separate from transcription time",
       stageResults: {
-        3: options.soundEvents
-          ? `${eventCount} sound events`
-          : "Skipped · speech only",
+        3: `${eventCount} sound events`,
       },
     });
     if (!evidence.length) {
@@ -256,6 +318,7 @@ async function analyze({ file, source, options }: AnalysisRequest) {
     const { CreateMLCEngine, prebuiltAppConfig } = await import(
       "@mlc-ai/web-llm"
     );
+    await requireModel("ranking");
     const record = prebuiltAppConfig.model_list.find(
       (m) => m.model_id === RANK_MODEL,
     );
@@ -268,7 +331,8 @@ async function analyze({ file, source, options }: AnalysisRequest) {
           model_list: [
             {
               ...record,
-              model: `https://huggingface.co/mlc-ai/${RANK_MODEL}/resolve/${RANK_REVISION}/`,
+              model: RANK_MODEL_URL,
+              model_lib: RANK_LIBRARY_URL,
             },
           ],
         },
@@ -391,14 +455,38 @@ async function analyze({ file, source, options }: AnalysisRequest) {
     input.dispose();
   }
 }
-self.onmessage = (event: MessageEvent<AnalysisRequest>) => {
-  void analyze(event.data).catch((error: unknown) =>
-    send({
-      type: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Local analysis failed. Please retry.",
-    }),
-  );
+self.onmessage = (
+  event: MessageEvent<
+    AnalysisRequest | { type: "prepare" } | ModelDownloadApproval
+  >,
+) => {
+  const request = event.data;
+  if ("type" in request) {
+    if (request.type === "approve-download") {
+      downloadGate.approve(request.id);
+      return;
+    }
+    preparation = prepare().catch(() => {
+      send({
+        type: "prepared",
+        preparation: {
+          models: { speech: "unknown", sound: "unknown", ranking: "unknown" },
+          speechReady: false,
+          error: "Model preparation could not finish. Start analysis to retry.",
+        },
+      });
+    });
+    return;
+  }
+  void preparation
+    .then(() => analyze(request))
+    .catch((error: unknown) =>
+      send({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Local analysis failed. Please retry.",
+      }),
+    );
 };

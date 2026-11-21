@@ -1,6 +1,6 @@
 export const ANALYSIS_STAGES = [
   {
-    title: "Downloading on-device AI models",
+    title: "Loading on-device AI models",
     description:
       "Load the speech model on this device. Sound and clip-selection models load when needed; the browser caches downloads.",
   },

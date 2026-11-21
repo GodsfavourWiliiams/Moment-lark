@@ -1,6 +1,7 @@
 import type { MediaSource, ClipDocument } from "../../types/editing";
 import type { AnalysisSnapshot } from "../../types/analysis";
 import type { AnalysisEvent } from "./protocol";
+import { claimPreparedWorker, createAnalysisWorker } from "./prepared-worker";
 import { loadGuestUsage } from "../../services/guest";
 import { analysisJobRequest } from "../../services/analysis-jobs";
 import {
@@ -22,12 +23,14 @@ export async function runAnalysis(
   signal: AbortSignal,
   onProgress: (snapshot: AnalysisSnapshot) => void,
   options: AnalysisOptions = DEFAULT_ANALYSIS_OPTIONS,
+  onDownloadRequired?: (
+    request: NonNullable<AnalysisSnapshot["downloadRequest"]>,
+    approve: () => void,
+  ) => void,
 ): Promise<{ clips: ClipDocument[]; report: AnalysisReport }> {
   signal.throwIfAborted();
   const guidance = sourceGuidance(source.durationInFrames / source.fps);
   if (guidance.blocked) throw new Error(guidance.message);
-  await loadGuestUsage();
-  signal.throwIfAborted();
   const id = crypto.randomUUID();
   const provenance: AnalysisProvenance = {
     promptId: "highlights",
@@ -35,13 +38,11 @@ export async function runAnalysis(
     schemaVersion: SCHEMA_VERSION as "highlights-result@1",
     repairVersion: compiled["json-repair"].version,
     speechModel: `${SPEECH_MODEL.id}@${SPEECH_MODEL.revision}`,
-    soundModel: options.soundEvents
-      ? `${SOUND_MODEL.id}@${SOUND_MODEL.revision}`
-      : null,
+    soundModel: `${SOUND_MODEL.id}@${SOUND_MODEL.revision}`,
     rankingModel: `${RANK_MODEL}@${RANK_REVISION}`,
   };
   let timings: Record<string, number> = {};
-  let worker: Worker | undefined;
+  let worker: Worker | undefined = claimPreparedWorker();
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let reserved = false;
   let finished = false;
@@ -50,6 +51,8 @@ export async function runAnalysis(
   };
   signal.addEventListener("abort", cancel, { once: true });
   try {
+    await loadGuestUsage();
+    signal.throwIfAborted();
     const job = await analysisJobRequest("", {
       id,
       sourceId: source.id,
@@ -62,10 +65,7 @@ export async function runAnalysis(
         "This analysis job is no longer available. Please import the video again.",
       );
     signal.throwIfAborted();
-    worker = new Worker(
-      new URL("../../workers/analysis.worker.ts", import.meta.url),
-      { type: "module" },
-    );
+    worker ??= createAnalysisWorker();
     const clips = await new Promise<ClipDocument[]>((resolve, reject) => {
       const abort = () =>
         reject(
@@ -86,11 +86,22 @@ export async function runAnalysis(
         );
       worker!.onmessage = (event: MessageEvent<AnalysisEvent>) => {
         if (signal.aborted) return;
-        if (event.data.type === "progress") onProgress(event.data.snapshot);
-        else if (event.data.type === "complete") {
+        if (event.data.type === "progress") {
+          const request = event.data.snapshot.downloadRequest;
+          if (request)
+            onDownloadRequired?.(request, () => {
+              if (!signal.aborted)
+                worker?.postMessage({
+                  type: "approve-download",
+                  id: request.id,
+                });
+            });
+          onProgress(event.data.snapshot);
+        } else if (event.data.type === "complete") {
           timings = event.data.timings;
           finish(event.data.clips);
-        } else finish(undefined, new Error(event.data.message));
+        } else if (event.data.type === "error")
+          finish(undefined, new Error(event.data.message));
       };
       let checking = false;
       heartbeat = setInterval(() => {

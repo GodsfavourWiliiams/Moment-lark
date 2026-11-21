@@ -8,18 +8,29 @@ export function AnalysisStages({
   results,
   faceSummary,
   failed = false,
+  preparingSpeech = false,
+  speechReady = false,
 }: {
   stage?: number;
   results?: AnalysisSnapshot["stageResults"];
   faceSummary?: string;
   complete: boolean;
   failed?: boolean;
+  preparingSpeech?: boolean;
+  speechReady?: boolean;
 }) {
   return (
     <ol aria-label="Analysis stages" className="flex flex-col gap-3">
       {ANALYSIS_STAGES.map((item, index) => {
-        const done = complete || (stage !== undefined && index + 1 < stage);
-        const active = !complete && !failed && index + 1 === stage;
+        const done =
+          complete ||
+          (index === 0 && speechReady) ||
+          (stage !== undefined && index + 1 < stage);
+        const active =
+          !done &&
+          !complete &&
+          !failed &&
+          (index + 1 === stage || (index === 0 && preparingSpeech));
         return (
           <li
             key={item.title}
@@ -55,9 +66,13 @@ export function AnalysisStages({
                   className={`shrink-0 rounded-sm px-2 py-0.5 text-label-sm ${active ? "bg-surface-container-lowest text-primary-fixed" : done ? "bg-surface-container-high text-primary-fixed" : "text-on-surface-variant"}`}
                 >
                   {done
-                    ? (results?.[(index + 1) as 1 | 2 | 3 | 4] ?? "Complete")
+                    ? index === 0 && speechReady
+                      ? "Speech model ready"
+                      : (results?.[(index + 1) as 1 | 2 | 3 | 4] ?? "Complete")
                     : active
-                      ? `Stage ${stage}/4`
+                      ? preparingSpeech
+                        ? "Loading saved model"
+                        : `Stage ${stage}/4`
                       : "Pending"}
                 </span>
               </div>

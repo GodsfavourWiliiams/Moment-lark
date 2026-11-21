@@ -10,6 +10,7 @@ export type StudioContextValue = StudioState & {
   openPicker: () => void;
   selectFiles: (files: FileList) => void;
   startAnalysis: (options: AnalysisOptions) => void;
+  approveModelDownload: (id: string) => void;
   returnToImport: () => void;
   openShortcuts: () => void;
   closeDialog: () => void;

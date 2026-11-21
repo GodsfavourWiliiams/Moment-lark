@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useStudio } from "@/hooks/use-studio";
 import { AnalysisView } from "@/features/analysis";
 import { ImportDropzone } from "./components/import-dropzone";
@@ -22,6 +23,7 @@ export function WelcomePage() {
         snapshot={studio.analysis}
         awaitingAnalysis={studio.awaitingAnalysis}
         onStart={studio.startAnalysis}
+        onApproveDownload={studio.approveModelDownload}
         error={studio.error}
         complete={editing.reached.suggestions}
         onCancel={studio.returnToImport}
@@ -39,6 +41,9 @@ export function WelcomePage() {
           error={studio.error}
         />
         <PrivacyCard />
+        <Link href="/models" className="text-body-sm text-primary underline">
+          Import or export saved AI models
+        </Link>
         <WorkflowGuide />
         <ShortcutRibbon />
       </div>
