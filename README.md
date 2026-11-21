@@ -17,11 +17,33 @@ npm ci
 npm run dev
 ```
 
-Open <http://localhost:3000>. Node.js 20.9+ is required; CI uses Node.js 24.
+In a second terminal, start the guest API (this applies the local database migrations first):
+
+```bash
+npm run dev:api
+```
+
+Open <http://localhost:3000>. The frontend uses port 3000 and forwards `/api/*` to the local Worker on port 8787. Keep both processes running. Use `localhost:3000`, matching `APP_ORIGIN` in `wrangler.local.jsonc`; if you deliberately use a different frontend origin, update that setting. CI uses Node.js 24; use Node.js 24 for the full frontend/backend toolchain.
+
+### Guest session slice
+
+The welcome screen now reads an actual D1-backed guest allowance. The local development grant is **90 analysis minutes**, configured as `GUEST_ALLOWANCE_SECONDS: "5400"` in `wrangler.local.jsonc`. This is a test value, not a published production policy. Changing configuration affects newly created guests; migration `0002` upgrades the earlier 30-minute local grants to 90 minutes while preserving usage and reservations.
+
+Each local video may be up to **90 minutes (1 hour 30 minutes)** long. `src/lib/media/source-limits.ts` validates the source duration before analysis preparation. This per-file cap is separate from the cumulative guest allowance. Allowance reservations and AI processing are not connected yet; accepting a file is not a guarantee of 90-minute analysis performance on every device.
+
+- `GET /api/health`: API availability.
+- `POST /api/guest/session`: create a guest or reuse the valid session cookie. Accepts only an empty JSON object and requires the configured app Origin.
+- `GET /api/guest/usage`: return that session's allowance, or `401` when the session is missing/expired.
+
+The session cookie lasts seven days and is host-only, HttpOnly, and SameSite=Strict. The token is generated randomly; only its SHA-256 digest is stored in D1. HTTPS responses set Secure; the explicit local HTTP setup cannot use a Secure cookie. Deployed guest issuance is disabled until the production cookie policy, separate D1 bindings, issuance/network limits, and Turnstile checks are implemented. The public deployment can serve the API health endpoint but returns `503 guest_unavailable` for guest endpoints. No production database or cloud resource has been provisioned.
+
+The local database persists under ignored `.wrangler/state/`; ordinary page reloads and API restarts keep the guest balance. Tests use a separate ephemeral D1 instance. Clearing cookies or using another browser creates a different local test guest. IP limits, reservations, spending/refunds, production sessions, and local AI are **not** implemented by this slice. No media or transcript is sent by these endpoints, and importing still enters Analysis without unlocking later steps.
+
+Run `npm run test:api` for database/API tests, or `npm test` for the full suite. The local runtime needs permission to open loopback ports. See [the backend learning guide](docs/backend-plan.md#first-working-slice-local-guest-sessions) for the request path and where to read the code.
 
 ## Cloudflare Workers deployment
 
-This application uses Next.js `output: "export"`. Deploy the generated `out/` directory as Workers Static Assets using the root `wrangler.jsonc`; no OpenNext server adapter is needed.
+This application uses Next.js `output: "export"`. The root `wrangler.jsonc` serves `out/` as Workers Static Assets and runs `server/index.ts` for `/api/*`; no OpenNext server adapter is needed. `wrangler.local.jsonc` is exclusively for local backend development and must not be used as a deployment configuration.
 
 Set the Git-connected Worker build settings to:
 
@@ -30,6 +52,8 @@ Set the Git-connected Worker build settings to:
 - Build command: `pnpm run build`
 - Production deploy command: `npx wrangler deploy --config wrangler.jsonc`
 - Preview deploy command: `npx wrangler preview --config wrangler.jsonc`
+
+After building, `npm run check:deploy` bundles the Worker and validates assets without publishing. Production/preview guest endpoints remain disabled until their separate database bindings and abuse controls are configured. Never attach a production database to branch previews.
 
 The empty `previews` block in `wrangler.jsonc` enables branch previews. Static assets and compatibility settings stay at the top level and apply to previews as well. Use `deploy` for production and `preview` for branch previews; see [Cloudflare preview configuration](https://developers.cloudflare.com/workers/previews/configuration/).
 
@@ -64,7 +88,9 @@ src/
   styles/tokens.css    Tailwind theme tokens from Stitch
 ```
 
-Reserve top-level `services/` for endpoint/API clients. Browser media helpers and pure utilities belong in `lib/`; hooks manage lifecycle and UI behavior. No per-feature service folders are introduced.
+`src/services/` contains frontend endpoint/API clients. Browser media helpers and pure utilities belong in `lib/`; hooks manage lifecycle and UI behavior. No per-feature service folders are introduced.
+
+The backend lives in `server/`: Hono routes, session business logic, parameterized database repositories, and versioned SQL migrations under `server/db/migrations/`. `shared/contracts/` contains Zod request/response schemas used by both sides. Frontend state/types remain in `src/state/` and `src/types/`. Backend code uses a separate TypeScript configuration and is excluded from the frontend typecheck.
 
 ## Styling and accessibility
 

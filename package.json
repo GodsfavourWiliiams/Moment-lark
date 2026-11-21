@@ -6,29 +6,38 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "typecheck": "tsc --noEmit && tsc -p server/tsconfig.json",
+    "test": "node --import tsx --test tests/*.test.ts server/tests/*.test.ts",
+    "dev:api": "npm run db:migrate:local && wrangler dev --config wrangler.local.jsonc",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.local.jsonc",
+    "test:api": "node --import tsx --test server/tests/*.test.ts",
+    "check:deploy": "wrangler deploy --dry-run --config wrangler.jsonc"
   },
   "dependencies": {
     "@remotion/media": "4.0.545",
     "@remotion/player": "4.0.545",
     "@remotion/web-renderer": "4.0.545",
     "fflate": "^0.8.3",
+    "hono": "^4.13.19",
     "mediabunny": "1.66.0",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "remotion": "4.0.545"
+    "remotion": "4.0.545",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261121.1",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "miniflare": "5.20261119.0-beta",
     "tailwindcss": "4.3.3",
     "tsx": "4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "4.166.0"
   }
 }

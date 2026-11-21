@@ -1,6 +1,6 @@
 # Product tiers and local processing foundation
 
-Updated 21 November 2026. This is the product direction, not a list of shipped features. Numeric allowances and prices remain to be decided after testing.
+Updated 21 November 2026. This is the product direction, not a list of shipped features. Production allowances and prices remain to be decided after testing. Local testing now allows 90 minutes per source video and grants 90 cumulative analysis minutes per guest; these are separate limits. The guest session and D1 allowance display are implemented locally, while reservation/settlement and AI integration remain pending.
 
 ## Product scope
 
@@ -61,8 +61,34 @@ Cloud features introduce metered costs and must be protected by authentication, 
 1. Prove local speech + sound detection + ranking on varied videos, including comedy and reactions.
 2. Connect real analysis to the existing editor and export workflow.
 3. Implement the guest identity API and server-side credit ledger, abuse controls, configurable resource limits, local saving and recovery.
-4. Test correctness, latency and memory on 30- and 60-minute sources; choose actual limits from the results.
+4. Test correctness, latency and memory on 30-, 60- and 90-minute sources. The local import cap is 90 minutes; full-length AI processing performance is not yet verified.
 5. Add free accounts and account-linked allowances, preserving local processing.
 6. Add paid entitlements, billing, cloud saving/processing and later visual AI. Validate cost and quality before assigning included capacity.
 
 The foundation should use explicit job modes and capabilities, shared project/analysis result types and a single entitlement policy. Build the local mode first; future cloud execution must be an explicit paid choice, not an automatic fallback. Do not implement empty cloud integrations before a provider is selected.
+
+## Clip-maker market review — 21 November 2026
+
+This review covers the six products in the supplied search screenshots, Restream, and four relevant alternatives. It is a review of official product/help/pricing documentation, not a hands-on quality benchmark or an exhaustive catalogue. Free account access, free AI runs, source-minute quotas, output duration and watermark-free downloads are different entitlements. Unpublished quotas remain unknown rather than assumed unlimited.
+
+| Product | Published free access / limits | Relevant workflow and comparison |
+| --- | --- | --- |
+| Restream Clips | One uploaded-video free try is advertised. Recurring Clips is an add-on: $19/month for 50 generated clips, $29 for 100, $59 for 250. A 7-day subscription trial renews unless canceled. | Stream recordings, uploads and supported public URLs; higher tier includes live clipping/autoposting. Competes on the streaming workflow. [Tool](https://restream.io/tools/ai-clip-generator), [pricing FAQ](https://support.restream.io/en/articles/10559070-clips-pricing-faqs). |
+| OpusClip | 60 credits/month; watermarked exports up to 1080p, no editing on Free, exports expire after 3 days. Starter is $15/month. | Direct benchmark for ranked clips, captions and review. Paid plans expand editing, publishing and formats. [Pricing](https://www.opus.pro/pricing). |
+| Vizard | 60 credits/month, 720p exports and 3-day storage; free exports have a watermark. One credit equals one source minute. | AI clipping with a full editor even on Free; paid scheduling and brand options. [Pricing](https://vizard.ai/pricing), [free-plan help](https://help.vizard.ai/en/articles/8767572-what-does-the-free-plan-for-vizard-offer). |
+| CapCut | Free-to-start long-to-short tools; exact AI runs and export entitlements depend on the account/product surface. Official pages do not establish one universal unlimited allowance. | Broad editing, effects, captions and templates. Benchmark editing convenience; do not equate free manual editing with unlimited AI clipping. [Workflow and access caveats](https://www.capcut.com/resource/ai-video-summarizer). |
+| Adobe Express | Advertises a free Clip maker. Documented source requirements: English, up to 1 GB, 1 minute–2 hours. A recurring clipping quota was not established from these pages. | Highlight extraction with captions and access to the larger design editor. A 90-minute source cap alone does not differentiate us. [Clip maker](https://www.adobe.com/express/create/video/clip), [requirements](https://helpx.adobe.com/express/web/video-creation-and-editing/create-videos/important-information-about-clip-maker.html). |
+| HeyGen | Advertises free AI clips without a credit card; exact clipping-specific free source minutes are not stated on the feature page. | Speech-led highlights, editable trims, captions and aspect ratios within a broader AI video suite. [Clip generator](https://www.heygen.com/tool/ai-video-clip-generator). |
+| ImagineArt | Free to start; paid plans add source minutes and higher export resolution. Exact free quota could not be verified from its accessible pricing page. | YouTube/file input, captions, scoring, vertical 9:16 output and a separate editor. Explicitly favors talk-heavy videos. [Autoclipper](https://www.imagine.art/ai-auto-clipper). |
+| Lumen5 | General Free plan lists 5 videos/month, maximum 2-minute output and a branded outro. Clip Maker describes trial access; this does not establish a 5-source-video AI quota. | Prompt-guided highlights, brand styles, multiple ratios and team review. [Pricing](https://lumen5.com/pricing/), [Clip Maker](https://lumen5.com/features/video-clip-maker). |
+| Eklipse | Gameplay Intelligence help advertises 3 free highlights; other help pages differ by feature and date. Do not promise a repeating free allowance without checking the account. | Important gaming benchmark for action/reaction highlights and stream workflows, with feature/game-specific restrictions. [Free highlights](https://eklipse.gg/help/maximize-3-free-highlights-new-streamer/), [feature restrictions](https://eklipse.gg/help/are-all-features-behind-a-paywall/). |
+| Descript | Current pricing lists 60 media minutes/month on Free and limited AI repurposing access; watermark-free export is paid on the comparison table. | Text-based editing and AI clip extraction in a fuller production editor. Older tool-page export claims differ; use the current pricing table. [Pricing](https://www.descript.com/pricing). |
+| Riverside | Public pricing lists Free with Magic Clips, 720p and watermark; recheck in-account terms because the rendered page also includes a staging-information warning. | Recording, transcript editing and clipping together. Local recording is not the same as keeping the complete workflow offline: Riverside describes continuous cloud upload. [Pricing](https://riverside.com/pricing), [Magic Clips](https://riverside.fm/magic-clips), [recording architecture](https://riverside.fm/blog/video-platforms). |
+
+### What this means for Moment Lark
+
+AI highlights, captions, optional aspect ratios and editable clips are established capabilities, not unique claims. Our intended combination is guest access, on-device media processing, original framing by default, and precise review before keeping/exporting clips. Existing local preview/export and guest identity are implemented; real local AI ranking and long-recording performance remain unproven. Cloud tools avoid relying entirely on the user's hardware and often already provide links, collaboration, publishing and live capture. We should not claim equivalent maturity or faster processing without measurements.
+
+Restream explicitly warns that speech-led clipping can perform poorly on gameplay without talking. Our speech-and-sound MVP should therefore be tested on gameplay with commentary, reactions, laughter, and non-speech audio events, while treating silent visual action as a known gap. Supporting a GTA recording as a file does not establish reliable GTA highlight detection or live-stream ingestion. [Restream workflow limitations](https://support.restream.io/en/articles/10574261-how-to-create-your-viral-clips).
+
+Recommended evaluation: use the same authorized podcast, comedy/reaction and gameplay recordings across selected tools and Moment Lark. Include 30-, 60- and 90-minute sources. Record useful clips retained per hour, complete-thought boundaries, missed moments, caption corrections, framing errors, processing time, peak memory, export success and actual free-plan restrictions. Include speech accents/code-switching and low-spec devices. Treat virality scores as vendor heuristics, not guaranteed audience outcomes. No competitor subscriptions or uploads were made during this documentation review.

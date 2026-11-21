@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "moment-lark-local-api",
+  "main": "server/index.ts",
+  "compatibility_date": "2026-11-20",
+  "workers_dev": false,
+  "dev": { "ip": "127.0.0.1", "port": 8787 },
+  "vars": {
+    "GUEST_MODE": "local",
+    "GUEST_ALLOWANCE_SECONDS": "5400",
+    "APP_ORIGIN": "http://localhost:3000",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "moment-lark-local",
+      "database_id": "local-only",
+      "migrations_dir": "server/db/migrations",
+    },
+  ],
+}

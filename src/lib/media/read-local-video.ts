@@ -1,4 +1,5 @@
 import type { EditingDocument } from "@/types/editing";
+import { validateSourceDuration } from "./source-limits";
 
 /** Inspect the local Blob without uploading or copying the complete recording into memory. */
 export async function readLocalVideo(
@@ -17,8 +18,7 @@ export async function readLocalVideo(
         "This video's codec cannot be decoded in this browser. Try an H.264 MP4 or VP9 WebM.",
       );
     const duration = await input.computeDuration();
-    if (!Number.isFinite(duration) || duration <= 0)
-      throw new Error("The video's duration could not be read.");
+    validateSourceDuration(duration);
     const stats = await track.computePacketStats(100);
     const fps = Math.max(1, Math.round(stats.averagePacketRate || 30));
     const durationInFrames = Math.max(1, Math.floor(duration * fps));

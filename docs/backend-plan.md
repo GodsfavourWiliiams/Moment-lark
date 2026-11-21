@@ -1,6 +1,28 @@
 # MVP backend: stack, guest limits and learning path
 
-Updated 21 November 2026. Selected implementation direction, not shipped functionality. This accompanies the [MVP checklist](mvp-plan.md) and [product tiers](product-tiers.md).
+Updated 21 November 2026. The local guest-session slice below is implemented; the remaining backend policy is a plan, not shipped functionality. This accompanies the [MVP checklist](mvp-plan.md) and [product tiers](product-tiers.md).
+
+## First working slice: local guest sessions
+
+Start `npm run dev` and `npm run dev:api` in separate terminals, then open `http://localhost:3000`. The API command applies the versioned local D1 migration before starting Wrangler on port 8787. No Cloudflare login, remote database, AI key, or paid service is needed for this local slice. Use Node.js 24 as in CI.
+
+Follow a request through the code:
+
+1. `src/features/guest/index.tsx` displays loading, allowance, unavailable, or retry states with the existing Tailwind tokens.
+2. `src/hooks/use-guest.ts` manages the lifecycle; `src/state/guest.ts` stores the UI result.
+3. `src/services/guest.ts` asks `GET /api/guest/usage`. Only a `401 session_required` triggers `POST /api/guest/session`; outages do not create replacement identities. It then verifies that the browser retained the cookie. In-flight initialization is deduplicated, and browsers supporting Web Locks coordinate initialization across tabs.
+4. Next.js proxies local API requests to Wrangler. The deployed Worker handles `/api/*` directly alongside the exported site.
+5. `server/routes/guest.ts` validates Origin, request size/type/body, and the local-only policy. `shared/contracts/guest.ts` defines the public data shape; clients cannot choose their allowance.
+6. `server/services/guest-session.ts` generates a random token and hashes it. `server/repositories/guests.ts` uses parameterized SQL and one transactional batch to create the guest and session together.
+7. D1 returns the stored grant, used and reserved seconds; the server calculates the remaining allowance. Only the opaque token goes into an HttpOnly cookie. The browser cannot read it through JavaScript.
+
+The approved local test grant is 5,400 seconds (90 minutes), configured in `wrangler.local.jsonc`; it is not a final product limit. Configuration changes affect new guests; migration `0002` upgrades the earlier 1,800-second test grants without resetting usage or reservations. Each imported local file is separately capped at 90 minutes by `src/lib/media/source-limits.ts`. The source cap is not cumulative usage enforcement, which requires the planned reservation endpoints. Local sessions expire after seven days. Local HTTP cookies omit Secure; local HTTPS sets it. Production sessions will require HTTPS and a hardened cookie policy before enabling issuance.
+
+Implemented tables: `guests` and `guest_sessions`, in `server/db/migrations/0001_guests.sql`. SQL constraints reject negative or overspent balances, but no API currently changes spending or reserves analysis. Used/reserved columns prepare the stored balance shape without pretending the reservation flow exists.
+
+Guest routes return `503 guest_unavailable` unless explicitly in local mode on a loopback hostname with a database and valid policy settings. Production/preview guest creation stays off until separate D1 databases, sessions, network limits, and Turnstile are ready. This local slice deliberately does not claim incognito/IP protection: a new cookie can create another local guest. Expired records are retained in the local development database; production cleanup/retention must be implemented before launch.
+
+Validation includes real local D1 tests for session reuse, expiry, guest isolation, token hashing, cookie flags, origin checks, bad payloads, transaction rollback, invalid configuration, and safe database errors. The client tests cover duplicate initialization, outage behavior, and blocked cookies. Analysis remains the next integration: importing a video does not spend credits or advance past Analysis yet.
 
 ## The stack we will use
 
@@ -73,7 +95,7 @@ Atomic means guest and network reservations either both succeed or neither chang
 
 Use server time, parameterized SQL, body-size limits, runtime validation, session ownership and origin/CSRF checks for mutations. Keep secrets outside `NEXT_PUBLIC_*`. New analysis should fail visibly if authorization is unavailable. Local computation and completion reports remain user-controlled: a backend cannot make downloaded models tamper-proof or verify actual processing duration without doing trusted work itself. Paid cloud services will need their own enforceable metering.
 
-## Planned repository structure
+## Repository structure and remaining additions
 
 Do not create placeholder directories until their first implementation is needed. Keep existing frontend folders and add:
 
@@ -84,7 +106,7 @@ server/
   middleware/          Session, origin checks, request limits
   services/            Guest policy and reservation business logic
   repositories/        Parameterized D1 reads/writes
-  db/schema.sql        Initial schema for the new backend
+  db/migrations/       Versioned SQL migrations (guests/session tables implemented)
   tests/               API, ownership, quota and concurrency tests
 shared/contracts/      Request/response schemas and safe shared types
 src/services/          Frontend API client functions

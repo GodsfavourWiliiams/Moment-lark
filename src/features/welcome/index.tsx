@@ -8,6 +8,7 @@ import { useEditingSession } from "@/hooks/use-editing";
 import { ShortcutRibbon } from "./components/shortcut-ribbon";
 import { WelcomeIntro } from "./components/welcome-intro";
 import { WorkflowGuide } from "./components/workflow-guide";
+import { GuestAllowance } from "@/features/guest";
 
 export function WelcomePage() {
   const studio = useStudio();
@@ -28,6 +29,7 @@ export function WelcomePage() {
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-space-xl px-space-lg py-space-xl">
       <WelcomeIntro />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-space-xl">
+        <GuestAllowance />
         <ImportDropzone
           onBrowse={studio.openPicker}
           onFiles={studio.selectFiles}

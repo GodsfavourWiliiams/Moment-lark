@@ -14,7 +14,7 @@ The MVP includes local autosave AND a backend for guest sessions, server-side an
 
 Use **TypeScript + Hono on Cloudflare Workers**, with **Cloudflare D1 (SQL)** for guest sessions, usage and network limits, **Turnstile** for bot challenges and **Wrangler** for local backend development/deployment. This keeps the same language as the frontend and builds on the repository’s existing Workers Static Assets deployment. Keep Next.js static export and add Worker API routes at `/api/*` on the same origin. Runtime API handlers cannot run inside the exported Next.js files.
 
-See [the backend implementation and learning guide](backend-plan.md) for the service roles, setup requirements, folder structure, endpoints, database design, free-tier limits and build sequence. These are selected planning choices; no backend has been implemented or provisioned by this documentation update.
+See [the backend implementation and learning guide](backend-plan.md) for the service roles, setup requirements, folder structure, endpoints, database design, free-tier limits and build sequence. The first local guest-session API and D1-backed allowance display are implemented. Reservations, network limits, Turnstile, production sessions, and remote provisioning remain pending.
 
 ## Guest identity and IP-based allowances
 
