@@ -12,10 +12,10 @@ const usage = {
     expiresAt: "2026-12-01T00:00:00.000Z",
   },
   allowance: {
-    grantedSeconds: 1800,
-    usedSeconds: 60,
-    reservedSeconds: 0,
-    remainingSeconds: 1740,
+    grantedVideos: 3,
+    usedVideos: 1,
+    reservedVideos: 0,
+    remainingVideos: 2,
   },
   mode: "local-development",
 };

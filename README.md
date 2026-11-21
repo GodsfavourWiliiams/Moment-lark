@@ -27,9 +27,11 @@ Open <http://localhost:3000>. The frontend uses port 3000 and forwards `/api/*` 
 
 ### Guest session slice
 
-The welcome screen now reads an actual D1-backed guest allowance. The local development grant is **90 analysis minutes**, configured as `GUEST_ALLOWANCE_SECONDS: "5400"` in `wrangler.local.jsonc`. This is a test value, not a published production policy. Changing configuration affects newly created guests; migration `0002` upgrades the earlier 30-minute local grants to 90 minutes while preserving usage and reservations.
+The welcome screen reads a D1-backed guest allowance of **three source videos**, configured as `GUEST_ALLOWANCE_VIDEOS: "3"` in `wrangler.local.jsonc`. There is no scheduled allowance reset in local testing. Session expiry or clearing cookies can still produce a new guest; production identity/abuse controls remain pending.
 
-Each local video may be up to **90 minutes (1 hour 30 minutes)** long. `src/lib/media/source-limits.ts` validates the source duration before analysis preparation. This per-file cap is separate from the cumulative guest allowance. Allowance reservations and AI processing are not connected yet; accepting a file is not a guarantee of 90-minute analysis performance on every device.
+Each local source file may be up to **2 GB (2,000,000,000 bytes)**. `src/lib/media/source-limits.ts` checks size before opening analysis and again before media inspection. The former 90-minute cap is removed; duration must still be readable and positive. File size does not guarantee processing performance on every device, and long-recording AI benchmarks remain pending.
+
+Migration `0003` converts the unused local minute ledger into a three-video ledger while preserving guest IDs and cookies. It refuses conversion if unexpected minute usage/reservations exist, because minutes cannot be translated reliably into video counts. The earlier migrations remain in place for existing local databases. Reservations and successful-analysis accounting are the next slice; imports do not consume slots yet. Multiple clips, editing and exports from an already analyzed source should not consume additional slots.
 
 - `GET /api/health`: API availability.
 - `POST /api/guest/session`: create a guest or reuse the valid session cookie. Accepts only an empty JSON object and requires the configured app Origin.

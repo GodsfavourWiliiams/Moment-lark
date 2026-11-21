@@ -27,11 +27,11 @@ function toUsage(record: GuestRecord): GuestUsage {
       expiresAt: new Date(record.expires_at * 1000).toISOString(),
     },
     allowance: {
-      grantedSeconds: record.granted_seconds,
-      usedSeconds: record.used_seconds,
-      reservedSeconds: record.reserved_seconds,
-      remainingSeconds:
-        record.granted_seconds - record.used_seconds - record.reserved_seconds,
+      grantedVideos: record.granted_videos,
+      usedVideos: record.used_videos,
+      reservedVideos: record.reserved_videos,
+      remainingVideos:
+        record.granted_videos - record.used_videos - record.reserved_videos,
     },
     mode: "local-development",
   };
@@ -54,7 +54,7 @@ export async function readGuestUsage(
 export async function getOrCreateGuest(
   db: D1Database,
   token: string | undefined,
-  allowanceSeconds: number,
+  allowanceVideos: number,
   now: number,
 ) {
   const existing = await readGuestUsage(db, token, now);
@@ -68,15 +68,15 @@ export async function getOrCreateGuest(
     digest: await digestSessionToken(newToken),
     now,
     expiresAt,
-    allowanceSeconds,
+    allowanceVideos,
   });
   return {
     usage: toUsage({
       id,
       expires_at: expiresAt,
-      granted_seconds: allowanceSeconds,
-      used_seconds: 0,
-      reserved_seconds: 0,
+      granted_videos: allowanceVideos,
+      used_videos: 0,
+      reserved_videos: 0,
     }),
     newToken,
   };

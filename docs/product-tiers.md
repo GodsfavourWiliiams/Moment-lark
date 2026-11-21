@@ -1,6 +1,6 @@
 # Product tiers and local processing foundation
 
-Updated 21 November 2026. This is the product direction, not a list of shipped features. Production allowances and prices remain to be decided after testing. Local testing now allows 90 minutes per source video and grants 90 cumulative analysis minutes per guest; these are separate limits. The guest session and D1 allowance display are implemented locally, while reservation/settlement and AI integration remain pending.
+Updated 21 November 2026. This is the product direction, not a list of shipped features. Production allowances and prices remain to be decided after testing. Local testing now allows 2 GB per source file and grants three source-video analyses per guest, with no scheduled reset. There is no fixed source-duration cap. The guest session and D1 allowance display are implemented locally, while reservation/settlement and AI integration remain pending.
 
 ## Product scope
 
@@ -28,16 +28,16 @@ Signing in alone does not upload videos, transcripts or projects. A free account
 
 The paid tier provides the expanded feature package with finite included allowances; it is not an unlimited commitment. Access to a feature and available capacity are separate checks. Features enter each tier only when implemented and verified.
 
-## Guest credits belong to Moment Lark
+## Guest video allowance belongs to Moment Lark
 
-Guest credits are an application-defined allowance, independent of any model provider's free quota. Prefer the name **analysis credits** or **analysis minutes** over model tokens so users can predict their usage.
+The guest allowance is application-defined and independent of any model provider's credits. Display **videos available**: three source videos per local guest, maximum 2 GB each, with no scheduled reset. Processing uses the user's device. The guest/session API stores counts, but reservation and settlement endpoints are still pending.
 
-Proposed accounting unit: one credit per source minute analyzed, with the precise rounding rule and starting balance configurable. This is a product proposal, not a committed grant amount. Track local analysis credits separately from paid cloud minutes/storage so local use cannot accidentally consume a paid provider budget.
+One successful source-video analysis should consume one slot. Multiple clips from that source, ordinary edits, exports and reopening an existing project do not consume more slots. Failed analysis releases its reservation. Use stable project/source identity and idempotent jobs to avoid double charges on retry. Keep video-slot allowances separate from future paid cloud minutes and storage. There is no fixed duration cap; benchmark long sources and handle memory in chunks.
 
-- [ ] Centralize tier capabilities, maximum source duration/size, analysis allowance, reset policy and concurrency limits.
+- [ ] Centralize tier capabilities, maximum source file size, analysis allowance, reset policy and concurrency limits.
 - [ ] Issue a random, opaque guest identifier from the backend in a Secure, HttpOnly cookie. Store the authoritative allowance and job ledger in the database; browser storage may cache display data only.
 - [ ] Reserve allowance atomically through the backend before starting local analysis; finalize once, with a unique job ID. Require connectivity for new analysis authorization and explain backend outages clearly.
-- [ ] Release reservations on application failures and define fair cancellation/re-analysis rules. Ordinary edits and exports should not consume another analysis credit.
+- [ ] Release reservations on application failures and define fair cancellation/re-analysis rules. Ordinary edits and exports should not consume another video slot.
 - [ ] Display remaining allowance and expected cost before analysis.
 - [ ] Make retries idempotent and recover abandoned reservations after refresh/crashes.
 - [ ] Associate guest sessions with server-derived HMAC IP keys; enforce guest-creation rates and shared per-network analysis budgets alongside per-guest credits. New browsers/incognito on the same IP share that network cap. Verify Turnstile challenges server-side; a challenge never resets credits. See [the backend plan](backend-plan.md#guest-and-ip-policy).
@@ -61,7 +61,7 @@ Cloud features introduce metered costs and must be protected by authentication, 
 1. Prove local speech + sound detection + ranking on varied videos, including comedy and reactions.
 2. Connect real analysis to the existing editor and export workflow.
 3. Implement the guest identity API and server-side credit ledger, abuse controls, configurable resource limits, local saving and recovery.
-4. Test correctness, latency and memory on 30-, 60- and 90-minute sources. The local import cap is 90 minutes; full-length AI processing performance is not yet verified.
+4. Test correctness, latency and memory on 30-, 60- and 90-minute sources. Also test multi-hour compressed recordings below the 2 GB cap; full-length AI processing performance is not yet verified.
 5. Add free accounts and account-linked allowances, preserving local processing.
 6. Add paid entitlements, billing, cloud saving/processing and later visual AI. Validate cost and quality before assigning included capacity.
 

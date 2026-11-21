@@ -15,24 +15,22 @@ export function GuestAllowance() {
         {state.status === "loading" && <span>Checking guest allowance…</span>}
         {state.status === "unavailable" && (
           <span>
-            Guest analysis is not available yet. Your video stays on this device.
+            Guest analysis is not available yet. Your video stays on this
+            device.
           </span>
         )}
         {state.status === "error" && <span>{state.message}</span>}
         {state.status === "ready" && (
           <>
-            <span className="font-semibold text-on-surface">Guest</span>
-            {" "}
+            <span className="font-semibold text-on-surface">Guest</span>{" "}
             <span aria-hidden="true">·</span>{" "}
             <span className="text-primary-fixed">
-              {new Intl.NumberFormat(undefined, {
-                maximumFractionDigits: 1,
-              }).format(state.usage.allowance.remainingSeconds / 60)}{" "}
-              minutes available
-            </span>
-            {" "}
+              {state.usage.allowance.remainingVideos}{" "}
+              {state.usage.allowance.remainingVideos === 1 ? "video" : "videos"}{" "}
+              available
+            </span>{" "}
             <span className="ml-space-sm">
-              of {state.usage.allowance.grantedSeconds / 60} analysis minutes
+              of {state.usage.allowance.grantedVideos} total
             </span>
           </>
         )}

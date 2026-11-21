@@ -8,7 +8,7 @@ A user imports a recording, receives useful AI clip suggestions with timestamps 
 
 The first MVP must not depend on a paid inference API. Transcription, sound detection, ranking and rendering run on the user's device. Model downloads, hosting, bandwidth, browser storage, memory and battery are still real resources; this is not a promise of unlimited free infrastructure. Do not train a model for this release.
 
-The MVP includes local autosave AND a backend for guest sessions, server-side analysis credits and IP-based network limits. Video, audio, transcripts and rendered clips stay on the device; only session/usage metadata reaches our backend. Guest analysis requires an online authorization request. Accounts, paid cloud saving/processing and subscriptions follow in [the roadmap](roadmap.md); see [product tiers](product-tiers.md). Numeric allowances and prices remain undecided.
+The MVP includes local autosave AND a backend for guest sessions, server-side analysis credits and IP-based network limits. Video, audio, transcripts and rendered clips stay on the device; only session/usage metadata reaches our backend. Guest analysis requires an online authorization request. Accounts, paid cloud saving/processing and subscriptions follow in [the roadmap](roadmap.md); see [product tiers](product-tiers.md). Local testing uses three source videos per guest, 2 GB per file and no scheduled reset. Production allowances and prices remain undecided.
 
 ## Backend language and services
 
@@ -107,7 +107,7 @@ Deliverable: a reproducible evaluation report and selected model revisions/confi
 - [ ] Store projects, transcript, clip edits and analysis results in IndexedDB with autosave and explicit delete/export-project actions.
 - [ ] Restore after refresh; request that the user reconnect the matching original file when it is unavailable. A blob URL is not persistent storage.
 - [ ] Handle storage limits, eviction and save failures visibly. Browser storage is not a guaranteed backup or cross-device cloud sync.
-- [ ] Introduce centralized limits for source duration, file size and queued exports. Choose release values from device tests; do not present proposed test values as final product policy.
+- [ ] Introduce centralized limits for source file size and queued exports. Choose release values from device tests; do not present proposed test values as final product policy.
 - [ ] Validate metadata before loading models and explain rejected inputs. Client-side limits protect device resources; they are not enforceable commercial quotas.
 
 ### 6. Stabilize and release

@@ -1,16 +1,25 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import { validateSourceDuration } from "../src/lib/media/source-limits";
+import {
+  validateSourceDuration,
+  validateSourceFileSize,
+} from "../src/lib/media/source-limits";
 
-it("accepts recordings through exactly 90 minutes", () => {
-  for (const seconds of [0.01, 1800, 3600, 5399.99, 5400]) {
+it("accepts valid durations without the former 90-minute cap", () => {
+  for (const seconds of [0.01, 1800, 5400, 5400.01, 7200, 36000]) {
     assert.doesNotThrow(() => validateSourceDuration(seconds));
   }
 });
 
-it("rejects recordings beyond 90 minutes before analysis", () => {
-  for (const seconds of [5400.01, 7200]) {
-    assert.throws(() => validateSourceDuration(seconds), /90 minutes/);
+it("accepts files up to exactly 2 decimal GB and rejects one byte over", () => {
+  assert.doesNotThrow(() => validateSourceFileSize(1));
+  assert.doesNotThrow(() => validateSourceFileSize(2_000_000_000));
+  assert.throws(() => validateSourceFileSize(2_000_000_001), /2 GB/);
+});
+
+it("rejects empty files and invalid file sizes", () => {
+  for (const size of [0, -1, NaN, Infinity, 1.5]) {
+    assert.throws(() => validateSourceFileSize(size), /non-empty/);
   }
 });
 

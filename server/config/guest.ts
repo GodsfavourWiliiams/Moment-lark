@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Bindings } from "../types";
 
 const policySchema = z.object({
-  allowanceSeconds: z.coerce.number().int().min(1).max(86_400),
+  allowanceVideos: z.coerce.number().int().min(1).max(100),
   appOrigin: z.string().url(),
 });
 
@@ -20,7 +20,7 @@ export function getLocalGuestPolicy(env: Bindings, requestUrl: string) {
     return null;
 
   const result = policySchema.safeParse({
-    allowanceSeconds: env.GUEST_ALLOWANCE_SECONDS,
+    allowanceVideos: env.GUEST_ALLOWANCE_VIDEOS,
     appOrigin: env.APP_ORIGIN,
   });
   if (!result.success) return null;

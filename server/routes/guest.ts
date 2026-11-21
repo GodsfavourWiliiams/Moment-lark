@@ -92,7 +92,7 @@ guestRoutes.post(
     const { usage, newToken } = await getOrCreateGuest(
       policy.db,
       getCookie(c, LOCAL_SESSION_COOKIE),
-      policy.allowanceSeconds,
+      policy.allowanceVideos,
       Math.floor(Date.now() / 1000),
     );
     if (newToken) {

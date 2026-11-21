@@ -8,10 +8,10 @@ export const guestUsageSchema = z.object({
     expiresAt: z.string().datetime(),
   }),
   allowance: z.object({
-    grantedSeconds: z.number().int().nonnegative(),
-    usedSeconds: z.number().int().nonnegative(),
-    reservedSeconds: z.number().int().nonnegative(),
-    remainingSeconds: z.number().int().nonnegative(),
+    grantedVideos: z.number().int().nonnegative(),
+    usedVideos: z.number().int().nonnegative(),
+    reservedVideos: z.number().int().nonnegative(),
+    remainingVideos: z.number().int().nonnegative(),
   }),
   mode: z.literal("local-development"),
 });

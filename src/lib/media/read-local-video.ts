@@ -1,11 +1,15 @@
 import type { EditingDocument } from "@/types/editing";
-import { validateSourceDuration } from "./source-limits";
+import {
+  validateSourceDuration,
+  validateSourceFileSize,
+} from "./source-limits";
 
 /** Inspect the local Blob without uploading or copying the complete recording into memory. */
 export async function readLocalVideo(
   file: File,
   url: string,
 ): Promise<EditingDocument> {
+  validateSourceFileSize(file.size);
   const { Input, BlobSource, ALL_FORMATS } = await import("mediabunny");
   const input = new Input({
     source: new BlobSource(file),

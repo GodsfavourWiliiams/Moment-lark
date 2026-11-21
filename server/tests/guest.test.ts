@@ -11,7 +11,23 @@ import { insertGuestSession } from "../repositories/guests";
 describe("guest API with local D1", () => {
   let runtime: Miniflare;
   let db: D1Database;
+  let migrationDb: D1Database;
   let env: Bindings;
+
+  async function applyMigration(database: D1Database, name: string) {
+    const sql = await readFile(
+      new URL(`../db/migrations/${name}`, import.meta.url),
+      "utf8",
+    );
+    await database.batch(
+      sql
+        .replace(/^--.*$/gm, "")
+        .split(";")
+        .map((statement) => statement.trim())
+        .filter(Boolean)
+        .map((statement) => database.prepare(statement)),
+    );
+  }
 
   before(async () => {
     runtime = new Miniflare({
@@ -30,27 +46,29 @@ describe("guest API with local D1", () => {
                 },
               },
             },
-            env: { DB: { type: "d1", id: "guest-test-db" } },
+            env: {
+              DB: { type: "d1", id: "guest-test-db" },
+              MIGRATION_DB: { type: "d1", id: "guest-migration-test-db" },
+            },
           },
         },
       ],
     });
     db = (await runtime.getD1Database("DB")) as unknown as D1Database;
-    const migration = await readFile(
-      new URL("../db/migrations/0001_guests.sql", import.meta.url),
-      "utf8",
-    );
-    await db.batch(
-      migration
-        .split(";")
-        .map((sql) => sql.trim())
-        .filter(Boolean)
-        .map((sql) => db.prepare(sql)),
-    );
+    migrationDb = (await runtime.getD1Database(
+      "MIGRATION_DB",
+    )) as unknown as D1Database;
+    for (const name of [
+      "0001_guests.sql",
+      "0002_local_guest_allowance.sql",
+      "0003_video_allowance.sql",
+    ]) {
+      await applyMigration(db, name);
+    }
     env = {
       DB: db,
       GUEST_MODE: "local",
-      GUEST_ALLOWANCE_SECONDS: "1800",
+      GUEST_ALLOWANCE_VIDEOS: "3",
       APP_ORIGIN: "http://localhost:3000",
     };
   });
@@ -120,7 +138,7 @@ describe("guest API with local D1", () => {
 
   it("creates the configured allowance and stores only a token digest", async () => {
     const guest = await session();
-    assert.equal(guest.usage.allowance.remainingSeconds, 1800);
+    assert.equal(guest.usage.allowance.remainingVideos, 3);
     assert.match(guest.header, /HttpOnly/);
     assert.match(guest.header, /SameSite=Strict/i);
     assert.match(guest.header, /Path=\//);
@@ -157,24 +175,24 @@ describe("guest API with local D1", () => {
     const guest = await session();
     await db
       .prepare(
-        "UPDATE guests SET used_seconds = 300, reserved_seconds = 120 WHERE id = ?",
+        "UPDATE guests SET used_videos = 1, reserved_videos = 1 WHERE id = ?",
       )
       .bind(guest.usage.guest.id)
       .run();
     const response = await create(
       guest.cookie,
       {},
-      { ...env, GUEST_ALLOWANCE_SECONDS: "3600" },
+      { ...env, GUEST_ALLOWANCE_VIDEOS: "5" },
     );
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("set-cookie"), null);
     const returned = guestUsageSchema.parse(await response.json());
     assert.equal(returned.guest.id, guest.usage.guest.id);
     assert.deepEqual(returned.allowance, {
-      grantedSeconds: 1800,
-      usedSeconds: 300,
-      reservedSeconds: 120,
-      remainingSeconds: 1380,
+      grantedVideos: 3,
+      usedVideos: 1,
+      reservedVideos: 1,
+      remainingVideos: 1,
     });
     assert.equal(
       await db.prepare("SELECT count(*) AS count FROM guests").first("count"),
@@ -182,41 +200,52 @@ describe("guest API with local D1", () => {
     );
   });
 
-  it("upgrades local test grants to 90 minutes without resetting usage", async () => {
-    const guest = await session();
-    await db
-      .prepare(
-        "UPDATE guests SET used_seconds = 300, reserved_seconds = 120 WHERE id = ?",
-      )
-      .bind(guest.usage.guest.id)
-      .run();
-    const migration = await readFile(
-      new URL(
-        "../db/migrations/0002_local_guest_allowance.sql",
-        import.meta.url,
-      ),
-      "utf8",
-    );
-    await db.prepare(migration).run();
-    await db.prepare(migration).run();
-    const returned = guestUsageSchema.parse(
-      await (await usage(guest.cookie)).json(),
-    );
-    assert.equal(returned.guest.id, guest.usage.guest.id);
-    assert.deepEqual(returned.allowance, {
-      grantedSeconds: 5400,
-      usedSeconds: 300,
-      reservedSeconds: 120,
-      remainingSeconds: 4980,
-    });
-    const fresh = await create(
-      undefined,
-      {},
-      { ...env, GUEST_ALLOWANCE_SECONDS: "5400" },
+  it("migrates minute grants to three videos while preserving sessions and rejecting ambiguous usage", async () => {
+    await applyMigration(migrationDb, "0001_guests.sql");
+    const id = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    const token = "b".repeat(64);
+    await migrationDb.batch([
+      migrationDb
+        .prepare(
+          "INSERT INTO guests (id, created_at, granted_seconds, used_seconds) VALUES (?, ?, 1800, 60)",
+        )
+        .bind(id, now),
+      migrationDb
+        .prepare(
+          "INSERT INTO guest_sessions (token_digest, guest_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        )
+        .bind(await digestSessionToken(token), id, now, now + 3600),
+    ]);
+    await applyMigration(migrationDb, "0002_local_guest_allowance.sql");
+    await assert.rejects(
+      applyMigration(migrationDb, "0003_video_allowance.sql"),
     );
     assert.equal(
-      guestUsageSchema.parse(await fresh.json()).allowance.remainingSeconds,
-      5400,
+      await migrationDb
+        .prepare("SELECT used_seconds FROM guests WHERE id = ?")
+        .bind(id)
+        .first("used_seconds"),
+      60,
+    );
+    // No analysis has shipped. Clear this deliberately seeded usage for the conversion.
+    await migrationDb.prepare("UPDATE guests SET used_seconds = 0").run();
+    await applyMigration(migrationDb, "0003_video_allowance.sql");
+    const result = await usage("ml_guest_local=" + token, {
+      ...env,
+      DB: migrationDb,
+    });
+    assert.equal(result.status, 200);
+    const returned = guestUsageSchema.parse(await result.json());
+    assert.equal(returned.guest.id, id);
+    assert.deepEqual(returned.allowance, {
+      grantedVideos: 3,
+      usedVideos: 0,
+      reservedVideos: 0,
+      remainingVideos: 3,
+    });
+    await assert.rejects(
+      migrationDb.prepare("UPDATE guests SET reserved_videos = 4").run(),
     );
   });
 
@@ -276,7 +305,7 @@ describe("guest API with local D1", () => {
   it("rejects malformed, oversized, or client-defined allowance requests", async () => {
     assert.equal((await create(undefined, { body: "{" })).status, 400);
     assert.equal(
-      (await create(undefined, { body: '{"allowanceSeconds":999999}' })).status,
+      (await create(undefined, { body: '{"allowanceVideos":999999}' })).status,
       400,
     );
     assert.equal(
@@ -305,7 +334,7 @@ describe("guest API with local D1", () => {
       {},
       { ...env, GUEST_MODE: "production" },
       { ...env, DB: undefined },
-      { ...env, GUEST_ALLOWANCE_SECONDS: "invalid" },
+      { ...env, GUEST_ALLOWANCE_VIDEOS: "invalid" },
     ]) {
       const response = await create(undefined, {}, bindings);
       assert.equal(response.status, 503);
@@ -322,7 +351,7 @@ describe("guest API with local D1", () => {
     const guest = await session();
     await assert.rejects(
       db
-        .prepare("UPDATE guests SET used_seconds = 1801 WHERE id = ?")
+        .prepare("UPDATE guests SET used_videos = 4 WHERE id = ?")
         .bind(guest.usage.guest.id)
         .run(),
     );
@@ -335,7 +364,7 @@ describe("guest API with local D1", () => {
         digest: digest!,
         now: 10,
         expiresAt: 20,
-        allowanceSeconds: 1800,
+        allowanceVideos: 3,
       }),
     );
     assert.equal(

@@ -13,6 +13,7 @@ import { useWorkflow } from "@/hooks/use-workflow";
 import { useStudioShortcuts } from "@/hooks/use-studio-shortcuts";
 import { initialStudioState, studioReducer } from "@/state/studio";
 import { StudioContext } from "@/state/studio-context";
+import { validateSourceFileSize } from "@/lib/media/source-limits";
 
 export function StudioProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -50,6 +51,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const selectFiles = useCallback(
     async (files: FileList) => {
       if (!files.length) return;
+      const id = ++request.current;
+      cancelLoad();
       if (files.length !== 1 || !/\.(mp4|mov|webm)$/i.test(files[0].name)) {
         dispatch({ type: "return-to-import" });
         router.push("/");
@@ -60,7 +63,21 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         return;
       }
       const file = files[0];
-      const id = ++request.current;
+      // Reject oversized files before replacing the active project or opening analysis.
+      try {
+        validateSourceFileSize(file.size);
+      } catch (error) {
+        dispatch({ type: "return-to-import" });
+        router.push("/");
+        dispatch({
+          type: "file-error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Could not read this video.",
+        });
+        return;
+      }
       dispatch({
         type: "start-analysis",
         video: { name: file.name, size: file.size },
@@ -80,7 +97,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [loadFile, router],
+    [loadFile, cancelLoad, router],
   );
 
   useEffect(() => {

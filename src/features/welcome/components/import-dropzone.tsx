@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Button, Icon } from "@/components/ui";
-import { MAX_LOCAL_VIDEO_MINUTES } from "@/lib/media/source-limits";
+import { MAX_LOCAL_VIDEO_SIZE_GB } from "@/lib/media/source-limits";
 
 type ImportDropzoneProps = {
   onBrowse: () => void;
@@ -99,8 +99,7 @@ export function ImportDropzone({
           </span>
         ))}
         <span className="ml-space-xs text-label-sm text-on-surface-variant">
-          H.264 / ProRes / VP9 · Up to {MAX_LOCAL_VIDEO_MINUTES} minutes per
-          video
+          H.264 / ProRes / VP9 · Up to {MAX_LOCAL_VIDEO_SIZE_GB} GB per video
         </span>
       </div>
       <p

@@ -7,7 +7,7 @@
   "dev": { "ip": "127.0.0.1", "port": 8787 },
   "vars": {
     "GUEST_MODE": "local",
-    "GUEST_ALLOWANCE_SECONDS": "5400",
+    "GUEST_ALLOWANCE_VIDEOS": "3",
     "APP_ORIGIN": "http://localhost:3000",
   },
   "d1_databases": [

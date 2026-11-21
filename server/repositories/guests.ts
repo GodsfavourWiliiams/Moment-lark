@@ -1,8 +1,8 @@
 export type GuestRecord = {
   id: string;
-  granted_seconds: number;
-  used_seconds: number;
-  reserved_seconds: number;
+  granted_videos: number;
+  used_videos: number;
+  reserved_videos: number;
   expires_at: number;
 };
 
@@ -14,7 +14,7 @@ export async function findGuestSession(
   return db
     .prepare(
       `
-    SELECT g.id, g.granted_seconds, g.used_seconds, g.reserved_seconds, s.expires_at
+    SELECT g.id, g.granted_videos, g.used_videos, g.reserved_videos, s.expires_at
     FROM guest_sessions s JOIN guests g ON g.id = s.guest_id
     WHERE s.token_digest = ? AND s.expires_at > ?
   `,
@@ -30,16 +30,16 @@ export async function insertGuestSession(
     digest: string;
     now: number;
     expiresAt: number;
-    allowanceSeconds: number;
+    allowanceVideos: number;
   },
 ) {
   // D1 batches are transactional: a failed session insert must not leave a guest behind.
   await db.batch([
     db
       .prepare(
-        `INSERT INTO guests (id, created_at, granted_seconds) VALUES (?, ?, ?)`,
+        `INSERT INTO guests (id, created_at, granted_videos) VALUES (?, ?, ?)`,
       )
-      .bind(input.id, input.now, input.allowanceSeconds),
+      .bind(input.id, input.now, input.allowanceVideos),
     db
       .prepare(
         `INSERT INTO guest_sessions (token_digest, guest_id, created_at, expires_at) VALUES (?, ?, ?, ?)`,
