@@ -7,7 +7,7 @@ Updated 21 November 2026. The repository contains the public guest implementatio
 | Environment | Worker | D1 database | Wrangler selector |
 | --- | --- | --- | --- |
 | Production | `moment-lark` | `moment-lark-production` | `--config wrangler.jsonc` (no named environment) |
-| Deployed development | `dev-moment-lark` | `moment-lark-dev` | `--config wrangler.jsonc --env dev` |
+| Deployed development | `moment-lark` → `dev` branch preview | `moment-lark-dev` | `wrangler preview --name dev` |
 | Local machine | local API on port 8787 | local SQLite-backed D1 simulation | `--config wrangler.local.jsonc --local` |
 
 Production ID: `f2d65328-234b-4a31-9adb-35a984520a71`. Dev ID: `78ded81a-62cd-4fd9-b532-93b86b58c647`. IDs and the Turnstile site key are identifiers, not passwords. Both deployments use binding `DB`, but the binding points to a different database. Tests use a third disposable database. Do not copy production data into tests.
@@ -16,23 +16,23 @@ Production ID: `f2d65328-234b-4a31-9adb-35a984520a71`. Dev ID: `78ded81a-62cd-4f
 
 `wrangler.jsonc` is JSON configuration. `d1_databases` connects a resource, and `vars` supplies normal runtime settings. The public site key is delivered to the frontend through `/api/guest/challenge`, so changing it does not require a Next.js build-time environment variable. No database password or connection string is needed.
 
-Two secrets must be set separately on **each** deployed Worker:
+Two secrets must be set separately on production and the existing **dev Preview**:
 
 - `TURNSTILE_SECRET`: the secret belonging to the configured widget. Cloudflare uses it to verify challenge tokens. Never put it in `NEXT_PUBLIC_*`, source control, screenshots or chat.
 - `NETWORK_HASH_SECRET`: an independent random value, at least 32 characters, used as an HMAC key to turn a network address into a window-specific pseudonymous identifier. Raw IPs are not stored in D1. Use different values for dev and production. Rotating this secret resets the association with existing network counters; do not regenerate it on each build.
 
-Set secrets through Workers & Pages → the specific Worker → Settings → Variables and Secrets → Add → Secret. Existing secrets survive regular code deployments. For CLI setup, after `npx wrangler login`, these commands prompt for the Turnstile secret without putting it in a command argument:
+Set production secrets through Workers & Pages → moment-lark → Production → Settings → Variables and Secrets → Add → Secret. For dev, select moment-lark → dev in the preview dropdown first. Secrets on the former standalone dev-moment-lark Worker do not transfer automatically; changing Previews Base secrets also does not update an existing dev Preview. Existing secrets survive regular code deployments. For CLI setup, after `npx wrangler login`, these commands prompt for the Turnstile secret without putting it in a command argument:
 
 ```sh
 npx wrangler secret put TURNSTILE_SECRET --config wrangler.jsonc
-npx wrangler secret put TURNSTILE_SECRET --config wrangler.jsonc --env dev
+pnpm exec wrangler preview secret put TURNSTILE_SECRET --config wrangler.jsonc --name dev
 ```
 
 These commands generate and send independent random network secrets directly to Wrangler, without printing their values. Run only once per environment, after checking whether a secret already exists:
 
 ```sh
 openssl rand -hex 32 | npx wrangler secret put NETWORK_HASH_SECRET --config wrangler.jsonc
-openssl rand -hex 32 | npx wrangler secret put NETWORK_HASH_SECRET --config wrangler.jsonc --env dev
+openssl rand -hex 32 | pnpm exec wrangler preview secret put NETWORK_HASH_SECRET --config wrangler.jsonc --name dev
 ```
 
 For local development, `wrangler.local.jsonc` keeps `GUEST_MODE=local`, loopback-only access and no Turnstile dependency. Private local values, if needed later, belong in ignored `.dev.vars` files; they do not automatically configure deployed Workers.
@@ -56,10 +56,10 @@ SQL is the language used to read and change database records. TypeScript is the 
 First inspect the remote schema with a read-only query (repeat with the production name/config when ready):
 
 ```sh
-npx wrangler d1 execute moment-lark-dev --remote --config wrangler.jsonc --env dev --command "SELECT name, type FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name;"
+npx wrangler d1 execute moment-lark-dev --remote --config wrangler.d1-dev.jsonc --command "SELECT name, type FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name;"
 ```
 
-`--remote` means the real Cloudflare database. `--local` means this computer's simulation. Never omit environment selection when you mean deployed dev.
+`--remote` means the real Cloudflare database. `--local` means this computer's simulation. Use wrangler.d1-dev.jsonc for dev database commands. This database-only file cannot deploy a Worker: it has no entry point or assets. The live dev binding is in wrangler.jsonc → previews.d1_databases.
 
 Migrations are numbered SQL files. Wrangler tracks applied filenames in `d1_migrations` so they are not rerun on every deployment. If a database already contains application tables, compare them and its migration history before applying anything. A list command may initialize Wrangler's migration tracking table; it does not apply application migrations.
 
@@ -75,8 +75,8 @@ Migrations are numbered SQL files. Wrangler tracks applied filenames in `d1_migr
 After reviewing the pending migrations, apply to dev first:
 
 ```sh
-npx wrangler d1 migrations list moment-lark-dev --remote --config wrangler.jsonc --env dev
-npx wrangler d1 migrations apply moment-lark-dev --remote --config wrangler.jsonc --env dev
+npx wrangler d1 migrations list moment-lark-dev --remote --config wrangler.d1-dev.jsonc
+npx wrangler d1 migrations apply moment-lark-dev --remote --config wrangler.d1-dev.jsonc
 ```
 
 Only after dev is verified, repeat for production:
@@ -97,7 +97,7 @@ npx wrangler d1 migrations apply moment-lark-production --remote --config wrangl
 
 Initial configurable beta settings: three videos per guest, 2 GB per source, no duration cap or scheduled guest reset. Network buckets allow three new guests/day and nine completed-or-reserved videos/day; additionally, at most 10 verification attempts and 30 new analysis requests per ten minutes. Network windows use UTC boundaries and never reset an existing guest's used count. Shared networks can hit these caps; they are abuse controls, not proof of a unique person or a promise of lifetime per-person metering. Sessions expire after seven days. IP changes/VPNs and distributed attacks are not eliminated by Turnstile.
 
-An hourly scheduled handler expires abandoned leases and deletes up to 500 expired verification-token records and 500 expired, unreferenced network counters per run. It retains guests, allowances, jobs and diagnostics. Long-term retention/deletion of those records needs a separate policy; no automatic erasure of user balances is introduced.
+In production, an hourly scheduled handler expires abandoned leases and deletes up to 500 expired verification-token records and 500 expired, unreferenced network counters per run. It retains guests, allowances, jobs and diagnostics. Long-term retention/deletion of those records needs a separate policy; no automatic erasure of user balances is introduced. Cloudflare Cron Triggers do not run against branch Previews; the dev request handlers still expire relevant stale reservations, but there is no hourly global cleanup in the dev Preview.
 
 ## Build and deploy
 
@@ -110,13 +110,25 @@ npm test
 npm run typecheck
 npm run lint
 npm run build
-npm run check:deploy:dev
 npm run check:deploy
 ```
 
-Dry runs bundle and validate configuration without publishing or applying SQL. For Cloudflare Git builds, use `pnpm run build` as the build command. Configure the deployed dev Worker to run `npx wrangler deploy --config wrangler.jsonc --env dev`; configure production/master to run `npx wrangler deploy --config wrangler.jsonc`. The equivalent local scripts are `npm run deploy:dev` and `npm run deploy:production`.
+Dry runs bundle and validate configuration without publishing or applying SQL. In the existing Git-connected **moment-lark** Worker, use:
 
-Branch-preview URLs are not automatically trusted origins and should not be used as public guest environments. Use the stable dev URL for testing. Never connect a branch preview to the production ledger. Do not remove the `--env dev` selector from dev deployment commands.
+- Production branch: `master`.
+- Build command: `pnpm run build`.
+- Production deploy command: `pnpm run deploy:production` (apply production migrations separately after review).
+- Non-production branch deploy command: `pnpm run deploy:preview`.
+
+`deploy:preview` runs `wrangler preview server/index.ts --config wrangler.jsonc`. Wrangler selects the preview from the current Git branch; a push to dev updates moment-lark → dev. For an intentional manual upload specifically to that Preview, `pnpm run deploy:dev` supplies `--name dev`. Build first: manual deployments upload the existing out/ frontend. The explicit server entry point includes the API backend with the frontend assets.
+
+Dev migrations are a separate command, `pnpm run db:migrate:dev`. If CI should apply reviewed dev migrations before deploying, the dev-only pipeline may run `pnpm run db:migrate:dev && pnpm run deploy:dev`. Do not use that fixed-dev command for every feature branch: it would deploy all those branches into the same dev Preview. Keep other branch previews separate and never attach the production database to them. The configured APP_ORIGIN only allows guest access from the dev preview URL.
+
+## Retire the duplicate standalone Worker
+
+The old `wrangler deploy --env dev` command created a separate Worker named `dev-moment-lark`. That is different from the Git-connected `moment-lark` → `dev` Preview, despite both dashboard entries advertising the same hostname. The repository no longer contains that named environment or a command that deploys it.
+
+Before retiring the duplicate, ensure the two required secrets exist on **moment-lark → dev**, and deploy the updated Preview from Git. Then remove only the standalone **dev-moment-lark** Worker (Workers & Pages → dev-moment-lark → Settings → Delete Worker), after reviewing Cloudflare's deletion confirmation. This deletes that Worker's code, secrets, deployment history and trigger; preserve any needed configuration first. Do not delete moment-lark, its dev Preview, or either D1 database. Redeploy the dev Preview afterward and confirm its domain assignment. Removing env.dev from Git does not remove a Worker already created in Cloudflare.
 
 Before release, verify the real dev widget, reload/session reuse, a local video analysis through Suggestions, cancellation/refund, exhausted quota and error recovery. Tests mock Siteverify to exercise rejection and concurrency; they do not certify the real hosted widget. The public APIs return unavailable if required configuration/secrets are missing, rather than bypassing verification.
 

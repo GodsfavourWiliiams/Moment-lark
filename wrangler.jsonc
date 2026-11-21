@@ -1,13 +1,33 @@
 {
   "name": "moment-lark",
   "compatibility_date": "2026-11-20",
-  "previews": {},
+  "previews": {
+    "vars": {
+      "GUEST_MODE": "public",
+      "GUEST_ALLOWANCE_VIDEOS": "3",
+      "APP_ORIGIN": "https://dev-moment-lark.williamsgodsfavoursolomon.workers.dev",
+      "TURNSTILE_SITE_KEY": "0x4AAAAAAGLi6KtAAU8AFFm-",
+      "NETWORK_GUESTS_PER_DAY": "3",
+      "NETWORK_VIDEOS_PER_DAY": "9"
+    },
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "moment-lark-dev",
+        "database_id": "78ded81a-62cd-4fd9-b532-93b86b58c647",
+        "migrations_dir": "server/db/migrations"
+      }
+    ]
+  },
   "assets": {
     "directory": "./out",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page",
     "binding": "ASSETS",
-    "run_worker_first": ["/api", "/api/*"],
+    "run_worker_first": [
+      "/api",
+      "/api/*"
+    ]
   },
   "observability": {
     "enabled": false,
@@ -16,52 +36,34 @@
       "enabled": true,
       "head_sampling_rate": 1,
       "invocation_logs": true,
-      "persist": true,
+      "persist": true
     },
     "traces": {
       "enabled": false,
       "head_sampling_rate": 1,
-      "persist": true,
-    },
+      "persist": true
+    }
   },
   "main": "server/index.ts",
-  "triggers": { "crons": ["0 * * * *"] },
+  "triggers": {
+    "crons": [
+      "0 * * * *"
+    ]
+  },
   "vars": {
     "GUEST_MODE": "public",
     "GUEST_ALLOWANCE_VIDEOS": "3",
     "APP_ORIGIN": "https://moment-lark.williamsgodsfavoursolomon.workers.dev",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAGLi6KtAAU8AFFm-",
     "NETWORK_GUESTS_PER_DAY": "3",
-    "NETWORK_VIDEOS_PER_DAY": "9",
+    "NETWORK_VIDEOS_PER_DAY": "9"
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "moment-lark-production",
       "database_id": "f2d65328-234b-4a31-9adb-35a984520a71",
-      "migrations_dir": "server/db/migrations",
-    },
-  ],
-  "env": {
-    "dev": {
-      "name": "dev-moment-lark",
-      "triggers": { "crons": ["0 * * * *"] },
-      "vars": {
-        "GUEST_MODE": "public",
-        "GUEST_ALLOWANCE_VIDEOS": "3",
-        "APP_ORIGIN": "https://dev-moment-lark.williamsgodsfavoursolomon.workers.dev",
-        "TURNSTILE_SITE_KEY": "0x4AAAAAAGLi6KtAAU8AFFm-",
-        "NETWORK_GUESTS_PER_DAY": "3",
-        "NETWORK_VIDEOS_PER_DAY": "9",
-      },
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "moment-lark-dev",
-          "database_id": "78ded81a-62cd-4fd9-b532-93b86b58c647",
-          "migrations_dir": "server/db/migrations",
-        },
-      ],
-    },
-  },
+      "migrations_dir": "server/db/migrations"
+    }
+  ]
 }

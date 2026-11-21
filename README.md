@@ -53,11 +53,11 @@ Set the Git-connected Worker build settings to:
 - Root directory: repository root
 - Build command: `pnpm run build`
 - Production deploy command: `npx wrangler deploy --config wrangler.jsonc`
-- Separate deployed dev Worker command: `npx wrangler deploy --config wrangler.jsonc --env dev`
+- Non-production branch deploy command: `pnpm run deploy:preview` (uses the Git branch name)
 
 After building, `npm run check:deploy` bundles the Worker and validates assets without publishing. Public guest endpoints require the configured secrets and remote migrations. The production and stable dev URLs have separate database bindings. Never attach a production database to branch previews. Follow the [deployment and SQL walkthrough](docs/deployment.md) before running remote commands.
 
-The empty `previews` block remains available for asset previews. Public guest APIs intentionally accept only each deployment’s exact configured origin, so generated preview URLs are not guest-testing environments. Use the stable dev Worker with `--env dev`.
+Use one Git-connected Worker, `moment-lark`, with the `dev` branch preview beneath it. `deploy:dev` explicitly updates that preview; `deploy:preview` uses the current Git branch. Neither creates a standalone `dev-moment-lark` Worker. The `previews` block binds the dev database and configures the exact dev preview origin; other branch previews do not gain public guest access automatically. See the deployment guide for retiring the former duplicate Worker.
 
 The Wrangler configuration must be included in the branch being deployed. It explicitly selects `out/`, serves exported HTML routes such as `/editor` from `editor.html`, and uses the exported `404.html` for unknown paths. Keep `output: "export"` in `next.config.ts`.
 

@@ -1,0 +1,12 @@
+// Database-management configuration only: no Worker entry point or assets.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "moment-lark-dev",
+      "database_id": "78ded81a-62cd-4fd9-b532-93b86b58c647",
+      "migrations_dir": "server/db/migrations"
+    }
+  ]
+}

@@ -15,9 +15,10 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.local.jsonc",
     "test:api": "node --import tsx --test server/tests/*.test.ts",
     "check:deploy": "wrangler deploy --dry-run --config wrangler.jsonc",
-    "check:deploy:dev": "wrangler deploy --dry-run --config wrangler.jsonc --env dev",
     "deploy:production": "wrangler deploy --config wrangler.jsonc",
-    "deploy:dev": "wrangler deploy --config wrangler.jsonc --env dev"
+    "deploy:dev": "wrangler preview server/index.ts --config wrangler.jsonc --name dev",
+    "deploy:preview": "wrangler preview server/index.ts --config wrangler.jsonc",
+    "db:migrate:dev": "wrangler d1 migrations apply moment-lark-dev --remote --config wrangler.d1-dev.jsonc"
   },
   "dependencies": {
     "@huggingface/transformers": "3.8.1",
