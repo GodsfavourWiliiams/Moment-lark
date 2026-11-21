@@ -49,7 +49,7 @@ export function ImportDropzone({
       />
       <button
         type="button"
-        className="absolute inset-0 rounded-xl focus-visible:-outline-offset-4"
+        className="absolute inset-0 rounded-2xl focus-visible:-outline-offset-4"
         onClick={onBrowse}
         aria-label="Browse for a video or drop one onto this canvas"
         aria-describedby="import-description video-formats"
