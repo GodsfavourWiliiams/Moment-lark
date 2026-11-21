@@ -5,6 +5,7 @@ export const initialStudioState: StudioState = {
   reading: false,
   dialog: null,
   error: null,
+  analysis: {},
 };
 export function studioReducer(
   state: StudioState,
@@ -17,9 +18,12 @@ export function studioReducer(
         view: "analysis",
         selectedVideo: action.video,
         reading: true,
+        analysis: {},
         error: null,
         dialog: null,
       };
+    case "analysis-progress":
+      return { ...state, analysis: action.snapshot };
     case "video-ready":
       return { ...state, reading: false };
     case "return-to-import":

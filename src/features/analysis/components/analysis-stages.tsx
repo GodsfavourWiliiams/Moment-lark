@@ -7,17 +7,19 @@ export function AnalysisStages({
   complete,
   results,
   faceSummary,
+  failed = false,
 }: {
   stage?: number;
   results?: AnalysisSnapshot["stageResults"];
   faceSummary?: string;
   complete: boolean;
+  failed?: boolean;
 }) {
   return (
     <ol aria-label="Analysis stages" className="flex flex-col gap-3">
       {ANALYSIS_STAGES.map((item, index) => {
         const done = complete || (stage !== undefined && index + 1 < stage);
-        const active = !complete && index + 1 === stage;
+        const active = !complete && !failed && index + 1 === stage;
         return (
           <li
             key={item.title}
@@ -72,9 +74,9 @@ export function AnalysisStages({
                     className="shrink-0 text-tertiary-fixed-dim"
                   />
                   <span>
-                    Face detection bounding boxes:{" "}
+                    Video framing:{" "}
                     <strong className="text-on-surface">
-                      {faceSummary ?? "Awaiting detection"}
+                      {faceSummary ?? "Original frame preserved"}
                     </strong>
                   </span>
                 </p>

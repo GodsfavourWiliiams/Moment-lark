@@ -13,15 +13,24 @@ import { useWorkflow } from "@/hooks/use-workflow";
 import { useStudioShortcuts } from "@/hooks/use-studio-shortcuts";
 import { initialStudioState, studioReducer } from "@/state/studio";
 import { StudioContext } from "@/state/studio-context";
+import { runAnalysis } from "@/lib/analysis/run-analysis";
 import { validateSourceFileSize } from "@/lib/media/source-limits";
 
 export function StudioProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { loadFile, cancelLoad, resetSession, reached } = useEditingSession();
+  const {
+    loadFile,
+    cancelLoad,
+    resetSession,
+    reached,
+    dispatch: editingDispatch,
+  } = useEditingSession();
   const workflow = useWorkflow();
   const [state, dispatch] = useReducer(studioReducer, initialStudioState);
   const inputRef = useRef<HTMLInputElement>(null);
   const request = useRef(0);
+  const analysisController = useRef<AbortController | null>(null);
+  useEffect(() => () => analysisController.current?.abort(), []);
   const previousView = useRef(state.view);
   const openPicker = useCallback(() => inputRef.current?.click(), []);
   const openShortcuts = useCallback(
@@ -34,6 +43,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   );
   const returnToImport = useCallback(() => {
     request.current++;
+    analysisController.current?.abort();
     if (reached.suggestions) cancelLoad();
     else resetSession();
     dispatch({ type: "return-to-import" });
@@ -52,6 +62,9 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     async (files: FileList) => {
       if (!files.length) return;
       const id = ++request.current;
+      analysisController.current?.abort();
+      const controller = new AbortController();
+      analysisController.current = controller;
       cancelLoad();
       if (files.length !== 1 || !/\.(mp4|mov|webm)$/i.test(files[0].name)) {
         dispatch({ type: "return-to-import" });
@@ -84,8 +97,24 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       });
       router.push("/");
       try {
-        if (!(await loadFile(file)) || id !== request.current) return;
+        const source = await loadFile(file);
+        if (!source || id !== request.current) return;
         dispatch({ type: "video-ready" });
+        const clips = await runAnalysis(
+          file,
+          source,
+          controller.signal,
+          (snapshot) => {
+            if (id === request.current)
+              dispatch({ type: "analysis-progress", snapshot });
+          },
+        );
+        if (id !== request.current || controller.signal.aborted) return;
+        editingDispatch({
+          type: "analysis-complete",
+          sourceId: source.id,
+          clips,
+        });
       } catch (error) {
         if (id !== request.current) return;
         dispatch({
@@ -97,7 +126,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [loadFile, cancelLoad, router],
+    [loadFile, cancelLoad, router, editingDispatch],
   );
 
   useEffect(() => {

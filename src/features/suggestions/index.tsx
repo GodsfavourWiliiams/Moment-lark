@@ -1,4 +1,5 @@
 "use client";
+import { createManualClip } from "@/lib/clip-queue";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
@@ -50,8 +51,25 @@ export function SuggestionsPage() {
             <p className="mt-2 text-on-surface-variant">
               {editing.document.clips.length
                 ? "Undo a dismissal to bring a moment back."
-                : "No moments were returned for this recording."}
+                : "No supported speech or sound moments were selected. You can still trim this video manually."}
             </p>
+            {!editing.document.clips.length && (
+              <button
+                type="button"
+                className="mt-4 rounded-lg bg-primary-container px-4 py-2 text-on-primary-fixed"
+                onClick={() => {
+                  const clip = createManualClip(
+                    editing.document,
+                    crypto.randomUUID(),
+                  );
+                  editing.dispatch({ type: "append", clip });
+                  editing.dispatch({ type: "enter-editor", id: clip.id });
+                  router.push(editorHref(clip.id));
+                }}
+              >
+                Create a manual clip
+              </button>
+            )}
             <button
               type="button"
               onClick={() => editing.dispatch({ type: "undo" })}

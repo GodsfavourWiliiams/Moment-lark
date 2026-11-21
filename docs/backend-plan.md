@@ -1,6 +1,6 @@
 # MVP backend: stack, guest limits and learning path
 
-Updated 21 November 2026. The local guest-session slice below is implemented; the remaining backend policy is a plan, not shipped functionality. This accompanies the [MVP checklist](mvp-plan.md) and [product tiers](product-tiers.md).
+Updated 21 November 2026. Local guest sessions and analysis-job reservations are implemented; public guest issuance and abuse controls below are still pending configuration and implementation. This accompanies the [MVP checklist](mvp-plan.md) and [product tiers](product-tiers.md).
 
 ## First working slice: local guest sessions
 
@@ -18,11 +18,15 @@ Follow a request through the code:
 
 The approved local grant is **three source videos**, configured as `GUEST_ALLOWANCE_VIDEOS: "3"` in `wrangler.local.jsonc`, with no scheduled reset. Each imported file is limited to **2 GB (2,000,000,000 bytes)** by `src/lib/media/source-limits.ts`; there is no fixed duration cap. File size and processing time are not interchangeable. Configuration changes affect new guests. Migration `0003` converts the unused minute ledger to video counts, preserving IDs and sessions. It fails rather than discarding unexpected old usage. Local sessions expire after seven days; expiry/cleared cookies can create a fresh guest, so this is not a lifetime per-person limit. Local HTTP cookies omit Secure; HTTPS sets it. Production issuance needs the hardened cookie and abuse policy.
 
-Implemented tables: `guests` and `guest_sessions`, managed by the versioned files in `server/db/migrations/`. SQL constraints reject negative or overspent balances, but no API currently changes spending or reserves analysis. Used/reserved columns prepare the stored balance shape without pretending the reservation flow exists.
+Implemented tables: `guests`, `guest_sessions`, and `analysis_jobs`, managed by versioned files in `server/db/migrations/`.
+
+An analysis job is one attempt to analyze a source. `POST /api/analysis-jobs` atomically inserts a reservation only if a slot remains. SQL triggers update the guest balance in the same database operation; competing tabs cannot overspend. The job ID makes retries idempotent. Ownership always comes from the cookie, never a client-provided guest ID. Only UUIDs, declared file size, timestamps and status reach D1. The browser keeps all media, captions and AI evidence.
+
+`heartbeat` renews a 15-minute lease once a minute. `complete` changes one reserved slot to used; `cancel` releases it. Reading usage or starting/updating a job expires abandoned reservations. There is no daily allowance reset. A network failure can hold a slot until lease expiry. Completion and file size are browser-reported: this is a product allowance, not trusted metering or proof of AI execution. Re-importing creates a new source; reopening/editing/exporting the current source creates no job.
 
 Guest routes return `503 guest_unavailable` unless explicitly in local mode on a loopback hostname with a database and valid policy settings. Production/preview guest creation stays off until separate D1 databases, sessions, network limits, and Turnstile are ready. This local slice deliberately does not claim incognito/IP protection: a new cookie can create another local guest. Expired records are retained in the local development database; production cleanup/retention must be implemented before launch.
 
-Validation includes real local D1 tests for session reuse, expiry, guest isolation, token hashing, cookie flags, origin checks, bad payloads, transaction rollback, invalid configuration, and safe database errors. The client tests cover duplicate initialization, outage behavior, and blocked cookies. Next implement atomic video-slot reservation, completion, cancellation and expiry recovery, then connect local analysis. Importing a video does not consume a slot or advance past Analysis yet.
+Validation includes real local D1 tests for session reuse, expiry, guest isolation, token hashing, cookie flags, origin checks, bad payloads, transaction rollback, invalid configuration, and safe database errors. The client tests cover duplicate initialization, outage behavior, and blocked cookies. Tests additionally cover concurrent reservation, idempotent completion, cancellation, expiry, heartbeat renewal and ownership. Import now reserves a slot, invokes real local analysis and opens Suggestions after validated results and completion acknowledgment.
 
 ## The stack we will use
 
@@ -116,6 +120,20 @@ src/hooks/             Guest balance and reservation lifecycle hooks
 Use separate TypeScript configurations for server and browser code. Share contracts, not database implementations or secrets. Remove obsolete paths instead of retaining compatibility wrappers. Existing local app port 3000 should be reused; Wrangler's separate backend process can use its own port. Decide local API origin/proxy configuration during setup; production remains same-origin.
 
 ## What you need and what it costs
+
+### Create the cloud resources with the generated Cloudflare URL
+
+A purchased domain is not required. In **Workers & Pages → moment-lark**, copy the deployed `https://…workers.dev` URL. Use that exact origin for the public app configuration; Turnstile takes the hostname without `https://` or a path. Add the custom domain later when you own it.
+
+1. Open **D1 SQL database → Create Database** in the Cloudflare dashboard. Name it `moment-lark-production` and create it. Copy its database ID. D1 is a real SQL database; the Worker accesses it using the `DB` binding rather than a database password in browser code.
+2. Create a separate `moment-lark-preview` database for preview deployments. Keep `wrangler.local.jsonc` pointing to the local emulator; local development must not write production data.
+3. Open **Turnstile → Add widget**. Name it `Moment Lark production`, select **Managed**, and add the exact deployed hostname. Choose the applicable visitor region. Keep pre-clearance off for this session-creation flow. Save the public site key and store the secret securely.
+4. Share the app URL, database ID and public site key when configuring this repository. The secret belongs in a Cloudflare Worker secret, not chat, Git, or a `NEXT_PUBLIC_*` variable. These values do not enable public guests by themselves: server-side challenge verification, issuance/network limits and environment configuration still need implementation.
+5. Once the correct production database is bound as `DB` with `migrations_dir: "server/db/migrations"`, apply the checked-in migrations with `npx wrangler d1 migrations apply DB --remote --config wrangler.jsonc`. This command changes the cloud database; do not run it against an unverified binding. The current repository configuration intentionally has no production database ID.
+
+The migrations create the tables; there is no need to manually invent tables in the dashboard. Our guest/session/job records hold IDs, allowance counts and job state. Videos and transcripts stay in the browser. Turnstile supplies a short-lived challenge token that the backend must validate before issuing a public session; it does not identify a person or store videos.
+
+Official setup: [create and bind D1](https://developers.cloudflare.com/d1/get-started/), [create a Turnstile widget](https://developers.cloudflare.com/turnstile/get-started/widget-management/dashboard/), [validate challenge tokens](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/).
 
 - Use the existing Cloudflare account/deployment. Create development and production D1 databases; preview builds must never use production guest records or secrets.
 - Create a Turnstile widget for deployed hostnames, using its test keys locally. The site key is public; the secret is server-only.

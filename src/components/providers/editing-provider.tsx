@@ -33,12 +33,12 @@ export function EditingProvider({ children }: { children: ReactNode }) {
       const document = await readLocalVideo(file, url);
       if (request.current !== id) {
         URL.revokeObjectURL(url);
-        return false;
+        return null;
       }
       if (sourceUrl.current) URL.revokeObjectURL(sourceUrl.current);
       sourceUrl.current = url;
       dispatch({ type: "load", document });
-      return true;
+      return document.source;
     } catch (error) {
       URL.revokeObjectURL(url);
       throw error;

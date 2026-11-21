@@ -27,7 +27,7 @@ export function AnalysisView({
   onCancel: () => void;
 }) {
   const title = error
-    ? "Could not prepare this video"
+    ? "Analysis needs your attention"
     : reading
       ? "Reading your video"
       : complete
@@ -53,7 +53,7 @@ export function AnalysisView({
           video={video}
           source={source}
           reading={reading}
-          running={Boolean(snapshot.stage) && !complete}
+          running={Boolean(snapshot.stage) && !complete && !error}
         />
         <div className="flex flex-col gap-8 overflow-hidden rounded-xl bg-surface-container p-6 shadow-2xl sm:p-8">
           <AnalysisProgress
@@ -61,6 +61,7 @@ export function AnalysisView({
             progress={snapshot.progress}
             stage={snapshot.stage}
             remainingSeconds={snapshot.remainingSeconds}
+            detail={snapshot.detail}
             complete={complete}
           />
           {error && (
@@ -72,6 +73,7 @@ export function AnalysisView({
             <div className="min-w-0 lg:col-span-7">
               <AnalysisStages
                 stage={snapshot.stage}
+                failed={Boolean(error)}
                 complete={complete}
                 results={snapshot.stageResults}
                 faceSummary={snapshot.faceSummary}

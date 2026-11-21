@@ -1,3 +1,4 @@
+import { analysisJobRoutes } from "./routes/analysis-jobs";
 import { Hono } from "hono";
 import { guestRoutes } from "./routes/guest";
 import type { ApiEnvironment } from "./types";
@@ -11,6 +12,7 @@ app.use("/api/*", async (c, next) => {
 });
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 app.route("/api/guest", guestRoutes);
+app.route("/api/analysis-jobs", analysisJobRoutes);
 app.all("/api/*", (c) =>
   c.json(
     { error: { code: "not_found", message: "API endpoint not found." } },

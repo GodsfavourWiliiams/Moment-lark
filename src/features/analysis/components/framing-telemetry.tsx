@@ -15,12 +15,15 @@ export function FramingTelemetry({
   const [previewError, setPreviewError] = useState(false);
   const level = (value?: number) => Math.max(0, Math.min(1, value ?? 0)) * 100;
   return (
-    <aside aria-label="Live framing telemetry" className="flex flex-col gap-4">
+    <aside
+      aria-label="Source preview and audio analysis"
+      className="flex flex-col gap-4"
+    >
       <div className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-4 shadow-inner">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-1.5 text-label-sm font-semibold tracking-wider text-on-surface-variant uppercase">
             <Icon name="eye" size={16} className="text-primary-fixed" />
-            Live Framing Telemetry
+            Source Preview
           </h2>
           <span className="font-code text-label-sm text-tertiary-fixed-dim">
             Frame{" "}
@@ -89,19 +92,21 @@ export function FramingTelemetry({
           >
             <div
               className="h-full bg-secondary"
-              style={{ width: `${level(snapshot.speechLevel)}%` }}
+              style={{
+                width: `${level(snapshot.speechWpm === undefined ? undefined : snapshot.speechWpm / 240)}%`,
+              }}
             />
           </div>
         </div>
         <div className="space-y-1.5">
           <div className="flex justify-between gap-2 text-label-sm">
             <span className="text-on-surface-variant">
-              Emotional Inflection Index
+              Sound Events Detected
             </span>
             <span className="font-code text-on-surface">
-              {snapshot.inflectionIndex === undefined
+              {snapshot.soundEvents === undefined
                 ? "—"
-                : snapshot.inflectionIndex.toFixed(2)}
+                : snapshot.soundEvents.toLocaleString()}
             </span>
           </div>
           <div
@@ -110,7 +115,7 @@ export function FramingTelemetry({
           >
             <div
               className="h-full bg-tertiary-fixed-dim"
-              style={{ width: `${level(snapshot.inflectionIndex)}%` }}
+              style={{ width: `${level(snapshot.audioLevel)}%` }}
             />
           </div>
         </div>

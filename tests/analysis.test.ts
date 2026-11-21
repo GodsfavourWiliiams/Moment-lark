@@ -29,11 +29,11 @@ test("analysis retains stage and telemetry content, previews the imported source
   for (const title of [
     "Downloading on-device AI models",
     "Transcribing &amp; analyzing speech",
-    "Scanning visual moments &amp; speaker framing",
+    "Detecting sound events",
     "Preparing ranked clip suggestions",
-    "Live Framing Telemetry",
+    "Source Preview",
     "Speech Cadence Detection",
-    "Emotional Inflection Index",
+    "Sound Events Detected",
   ])
     assert.ok(html.includes(title), title);
   assert.match(html, /<video[^>]*src="blob:my-video"/);

@@ -3,12 +3,14 @@ export function AnalysisProgress({
   title,
   stage,
   remainingSeconds,
+  detail,
   complete,
 }: {
   progress?: number;
   title: string;
   stage?: number;
   remainingSeconds?: number;
+  detail?: string;
   complete: boolean;
 }) {
   const percent = complete
@@ -53,7 +55,7 @@ export function AnalysisProgress({
             {complete
               ? "Opening Suggestions…"
               : remainingSeconds === undefined
-                ? "Awaiting analysis"
+                ? (detail ?? "Awaiting analysis")
                 : `Estimated ~${Math.ceil(remainingSeconds)}s remaining`}
           </span>
         </div>

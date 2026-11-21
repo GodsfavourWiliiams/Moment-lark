@@ -2,7 +2,7 @@ export const ANALYSIS_STAGES = [
   {
     title: "Downloading on-device AI models",
     description:
-      "Verify speech & vision weights in browser storage and prepare the local processing runtime.",
+      "Load the speech model on this device. Sound and clip-selection models load when needed; the browser caches downloads.",
   },
   {
     title: "Transcribing & analyzing speech",
@@ -10,13 +10,13 @@ export const ANALYSIS_STAGES = [
       "Identify natural phrase boundaries, question-and-answer pairs, and conversational peaks across your recording.",
   },
   {
-    title: "Scanning visual moments & speaker framing",
+    title: "Detecting sound events",
     description:
-      "Detect active speaker changes, visual gestures, and framing anchors for optional reframing.",
+      "Listen for laughter, cheering, applause, and other audio events. The original video frame stays unchanged.",
   },
   {
     title: "Preparing ranked clip suggestions",
     description:
-      "Compiling candidate moments with start/end bounds, viral hook scoring, and selection rationale.",
+      "Select complete moments from speech and sound evidence, with validated clip boundaries and an explanation.",
   },
 ] as const;

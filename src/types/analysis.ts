@@ -1,5 +1,8 @@
 /** Optional fields are populated by engine events, never by a simulated timer. */
 export type AnalysisSnapshot = {
+  detail?: string;
+  audioLevel?: number;
+  soundEvents?: number;
   stage?: 1 | 2 | 3 | 4;
   progress?: number;
   remainingSeconds?: number;

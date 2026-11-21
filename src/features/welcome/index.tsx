@@ -19,6 +19,7 @@ export function WelcomePage() {
         video={studio.selectedVideo}
         source={studio.reading ? null : (editing.document?.source ?? null)}
         reading={studio.reading}
+        snapshot={studio.analysis}
         error={studio.error}
         complete={editing.reached.suggestions}
         onCancel={studio.returnToImport}

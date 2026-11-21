@@ -1,9 +1,9 @@
 "use client";
 import { createContext, type Dispatch } from "react";
-import type { EditingAction, EditingState } from "@/types/editing";
+import type { EditingAction, EditingState, MediaSource } from "@/types/editing";
 export type EditingContextValue = EditingState & {
   dispatch: Dispatch<EditingAction>;
-  loadFile: (file: File) => Promise<boolean>;
+  loadFile: (file: File) => Promise<MediaSource | null>;
   cancelLoad: () => void;
   resetSession: () => void;
 };

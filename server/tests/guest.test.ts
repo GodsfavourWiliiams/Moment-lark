@@ -22,7 +22,11 @@ describe("guest API with local D1", () => {
     await database.batch(
       sql
         .replace(/^--.*$/gm, "")
-        .split(";")
+        .split(
+          sql.includes("--> statement-breakpoint")
+            ? "--> statement-breakpoint"
+            : ";",
+        )
         .map((statement) => statement.trim())
         .filter(Boolean)
         .map((statement) => database.prepare(statement)),
@@ -62,6 +66,7 @@ describe("guest API with local D1", () => {
       "0001_guests.sql",
       "0002_local_guest_allowance.sql",
       "0003_video_allowance.sql",
+      "0004_analysis_jobs.sql",
     ]) {
       await applyMigration(db, name);
     }
@@ -77,6 +82,7 @@ describe("guest API with local D1", () => {
   });
   beforeEach(async () => {
     await db.batch([
+      db.prepare("DELETE FROM analysis_jobs"),
       db.prepare("DELETE FROM guest_sessions"),
       db.prepare("DELETE FROM guests"),
     ]);
@@ -231,6 +237,7 @@ describe("guest API with local D1", () => {
     // No analysis has shipped. Clear this deliberately seeded usage for the conversion.
     await migrationDb.prepare("UPDATE guests SET used_seconds = 0").run();
     await applyMigration(migrationDb, "0003_video_allowance.sql");
+    await applyMigration(migrationDb, "0004_analysis_jobs.sql");
     const result = await usage("ml_guest_local=" + token, {
       ...env,
       DB: migrationDb,
@@ -389,5 +396,129 @@ describe("guest API with local D1", () => {
     assert.equal(response.status, 503);
     assert.doesNotMatch(await response.text(), /private database diagnostic/);
     assert.equal(response.headers.get("set-cookie"), null);
+  });
+  function jobRequest(cookie: string, body: unknown, action = "") {
+    return app.request(
+      `http://localhost:8787/api/analysis-jobs${action ? `/${action}` : ""}`,
+      {
+        method: "POST",
+        headers: {
+          Origin: "http://localhost:3000",
+          "Content-Type": "application/json",
+          Cookie: cookie,
+        },
+        body: JSON.stringify(body),
+      },
+      env,
+    );
+  }
+  const newJob = () => ({
+    id: crypto.randomUUID(),
+    sourceId: crypto.randomUUID(),
+    fileBytes: 1024,
+  });
+  it("reserves atomically across tabs, completes once and rejects overspending", async () => {
+    const guest = await session();
+    const jobs = Array.from({ length: 5 }, newJob);
+    const responses = await Promise.all(
+      jobs.map((job) => jobRequest(guest.cookie, job)),
+    );
+    assert.equal(responses.filter((r) => r.status === 200).length, 3);
+    assert.equal(responses.filter((r) => r.status === 409).length, 2);
+    const index = responses.findIndex((r) => r.status === 200);
+    assert.equal((await jobRequest(guest.cookie, jobs[index])).status, 200);
+    for (let i = 0; i < 2; i++)
+      assert.equal(
+        (await jobRequest(guest.cookie, { id: jobs[index].id }, "complete"))
+          .status,
+        200,
+      );
+    const balance = guestUsageSchema.parse(
+      await (await usage(guest.cookie)).json(),
+    ).allowance;
+    assert.equal(balance.usedVideos, 1);
+    assert.equal(balance.reservedVideos, 2);
+    assert.equal(balance.remainingVideos, 0);
+    await jobRequest(guest.cookie, { id: jobs[index].id }, "cancel");
+    assert.equal(
+      guestUsageSchema.parse(await (await usage(guest.cookie)).json()).allowance
+        .usedVideos,
+      1,
+    );
+  });
+  it("cancels without spending, enforces ownership and expires abandoned reservations", async () => {
+    const a = await session(),
+      b = await session(),
+      job = newJob();
+    await jobRequest(a.cookie, job);
+    assert.equal(
+      (await jobRequest(b.cookie, { id: job.id }, "complete")).status,
+      404,
+    );
+    await jobRequest(a.cookie, { id: job.id }, "cancel");
+    assert.equal(
+      guestUsageSchema.parse(await (await usage(a.cookie)).json()).allowance
+        .remainingVideos,
+      3,
+    );
+    const abandoned = newJob();
+    await jobRequest(a.cookie, abandoned);
+    await db
+      .prepare("UPDATE analysis_jobs SET expires_at = 1 WHERE id = ?")
+      .bind(abandoned.id)
+      .run();
+    assert.equal(
+      guestUsageSchema.parse(await (await usage(a.cookie)).json()).allowance
+        .remainingVideos,
+      3,
+    );
+    assert.equal(
+      (
+        (await (
+          await jobRequest(a.cookie, { id: abandoned.id }, "complete")
+        ).json()) as { status: string }
+      ).status,
+      "expired",
+    );
+  });
+  it("validates source size, origin, identity and heartbeat state", async () => {
+    const guest = await session(),
+      job = newJob();
+    assert.equal(
+      (await jobRequest(guest.cookie, { ...job, fileBytes: 2_000_000_001 }))
+        .status,
+      400,
+    );
+    assert.equal((await jobRequest("", job)).status, 401);
+    assert.equal(
+      (
+        await app.request(
+          "http://localhost:8787/api/analysis-jobs",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Cookie: guest.cookie,
+            },
+            body: JSON.stringify(job),
+          },
+          env,
+        )
+      ).status,
+      403,
+    );
+    await jobRequest(guest.cookie, job);
+    await db
+      .prepare("UPDATE analysis_jobs SET expires_at = ? WHERE id = ?")
+      .bind(Math.floor(Date.now() / 1000) + 10, job.id)
+      .run();
+    await jobRequest(guest.cookie, { id: job.id }, "heartbeat");
+    assert.ok(
+      (await db
+        .prepare("SELECT expires_at FROM analysis_jobs WHERE id = ?")
+        .bind(job.id)
+        .first<number>("expires_at"))! >
+        Math.floor(Date.now() / 1000) + 800,
+    );
   });
 });

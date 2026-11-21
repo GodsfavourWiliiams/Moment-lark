@@ -1,3 +1,4 @@
+import { expireJobs } from "../repositories/analysis-jobs";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
@@ -126,5 +127,12 @@ guestRoutes.get("/usage", async (c) => {
       },
       401,
     );
-  return c.json(usage);
+  await expireJobs(policy.db, usage.guest.id, Math.floor(Date.now() / 1000));
+  return c.json(
+    await readGuestUsage(
+      policy.db,
+      getCookie(c, LOCAL_SESSION_COOKIE),
+      Math.floor(Date.now() / 1000),
+    ),
+  );
 });
