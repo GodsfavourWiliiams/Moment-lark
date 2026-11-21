@@ -1,0 +1,13 @@
+# Browser AI prompt registry
+
+The models run in a browser worker. Prompt sources therefore live with the browser analysis code, not under `server/ai`. `scripts/prompts.mts` checks SHA-256 hashes, metadata and pinned includes at build time and generates `compiled.json`. The browser imports that verified bundle; no runtime filesystem or secret prompt service is required. `npm run build` refuses a stale or modified bundle.
+
+`registry.json` alone selects active versions. Released Markdown files, including their JSON-formatted YAML frontmatter, are immutable. Every change requires a new version, changelog entry and recorded evaluation. Fragment versions are pinned. Hashes cover metadata and body. CI compares historical registry entries with the PR base so changing both a released file and its hash cannot silently bypass the check. The metadata status describes the version when published; the registry controls current activation. Rollback changes the active version and regenerates the bundle.
+
+The existing `highlights@v1` instruction text is preserved as the baseline. Titles remain in the same ranking call to avoid a second generation pass. Captions retain the speech model's wording/timestamps; an LLM cannot reliably invent timings when splitting a segment. No separate clip-metadata call is currently implemented.
+
+One `json-repair@v1` call can repair malformed output with the schema, allowed IDs and bounded invalid response, all treated as untrusted data. The result still passes schema and timestamp/range checks. If repair fails, report analysis failure and release its reservation. Do not silently charge a successful empty result for a broken model response.
+
+Before promotion: run the contract/injection fixtures, then run the proposed model/prompt against representative recordings (conversation, gameplay commentary, sound-only, silence, short, multilingual and long). Compare both versions for usefulness, grounded titles, complete boundaries, false positives, latency and memory. Record model revision, browser/device, cold/warm cache and results. Deterministic tests cannot establish model quality; no LLM-judge or human benchmark is claimed by these tests. A judge can be added as a tests-only tool later and must never replace human review.
+
+Runtime diagnostics contain prompt/schema/model IDs and timings only. Never send transcripts, evidence, file names or model answers to application logs/D1. Browser-reported timings are diagnostics, not trusted billing measurements. Models have no tools; the worker still needs network access to download public model/runtime assets and contact the guest allowance API.

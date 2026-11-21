@@ -1,3 +1,4 @@
+import type { AnalysisReport } from "../../shared/contracts/analysis-job";
 export type AspectRatio = "original" | "16:9" | "9:16" | "1:1";
 export type ReviewStatus = "unreviewed" | "kept" | "dismissed";
 export type SuggestionFilter = "all" | "unreviewed" | "kept";
@@ -39,7 +40,11 @@ export type ClipDocument = {
   centered: boolean;
   captions: CaptionCue[];
 };
-export type EditingDocument = { source: MediaSource; clips: ClipDocument[] };
+export type EditingDocument = {
+  source: MediaSource;
+  clips: ClipDocument[];
+  analysis?: AnalysisReport;
+};
 export type EditingState = {
   document: EditingDocument | null;
   reached: {
@@ -66,7 +71,12 @@ export type ClipPatch = Partial<
 >;
 export type EditingAction =
   | { type: "reset" }
-  | { type: "analysis-complete"; sourceId: string; clips: ClipDocument[] }
+  | {
+      type: "analysis-complete";
+      sourceId: string;
+      clips: ClipDocument[];
+      analysis?: AnalysisReport;
+    }
   | { type: "enter-editor"; id: string }
   | { type: "prepare-export"; ids: string[] }
   | { type: "append"; clip: ClipDocument }

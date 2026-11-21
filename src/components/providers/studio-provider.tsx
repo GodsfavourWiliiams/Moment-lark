@@ -13,6 +13,8 @@ import { useWorkflow } from "@/hooks/use-workflow";
 import { useStudioShortcuts } from "@/hooks/use-studio-shortcuts";
 import { initialStudioState, studioReducer } from "@/state/studio";
 import { StudioContext } from "@/state/studio-context";
+import { sourceGuidance, type AnalysisOptions } from "@/lib/analysis/options";
+import type { MediaSource } from "@/types/editing";
 import { runAnalysis } from "@/lib/analysis/run-analysis";
 import { validateSourceFileSize } from "@/lib/media/source-limits";
 
@@ -29,6 +31,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(studioReducer, initialStudioState);
   const inputRef = useRef<HTMLInputElement>(null);
   const request = useRef(0);
+  const pendingSource = useRef<{
+    file: File;
+    source: MediaSource;
+    requestId: number;
+  } | null>(null);
+  const running = useRef(false);
   const analysisController = useRef<AbortController | null>(null);
   useEffect(() => () => analysisController.current?.abort(), []);
   const previousView = useRef(state.view);
@@ -43,6 +51,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   );
   const returnToImport = useCallback(() => {
     request.current++;
+    pendingSource.current = null;
+    running.current = false;
     analysisController.current?.abort();
     if (reached.suggestions) cancelLoad();
     else resetSession();
@@ -62,6 +72,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     async (files: FileList) => {
       if (!files.length) return;
       const id = ++request.current;
+      pendingSource.current = null;
+      running.current = false;
       analysisController.current?.abort();
       const controller = new AbortController();
       analysisController.current = controller;
@@ -100,21 +112,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         const source = await loadFile(file);
         if (!source || id !== request.current) return;
         dispatch({ type: "video-ready" });
-        const clips = await runAnalysis(
-          file,
-          source,
-          controller.signal,
-          (snapshot) => {
-            if (id === request.current)
-              dispatch({ type: "analysis-progress", snapshot });
-          },
-        );
-        if (id !== request.current || controller.signal.aborted) return;
-        editingDispatch({
-          type: "analysis-complete",
-          sourceId: source.id,
-          clips,
-        });
+        pendingSource.current = { file, source, requestId: id };
       } catch (error) {
         if (id !== request.current) return;
         dispatch({
@@ -126,7 +124,57 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [loadFile, cancelLoad, router, editingDispatch],
+    [loadFile, cancelLoad, router],
+  );
+
+  const startAnalysis = useCallback(
+    async (options: AnalysisOptions) => {
+      const pending = pendingSource.current;
+      if (
+        !pending ||
+        running.current ||
+        sourceGuidance(pending.source.durationInFrames / pending.source.fps)
+          .blocked
+      )
+        return;
+      running.current = true;
+      const controller = new AbortController();
+      analysisController.current = controller;
+      dispatch({ type: "run-analysis" });
+      try {
+        const result = await runAnalysis(
+          pending.file,
+          pending.source,
+          controller.signal,
+          (snapshot) => {
+            if (pending.requestId === request.current)
+              dispatch({ type: "analysis-progress", snapshot });
+          },
+          options,
+        );
+        if (pending.requestId !== request.current || controller.signal.aborted)
+          return;
+        editingDispatch({
+          type: "analysis-complete",
+          sourceId: pending.source.id,
+          clips: result.clips,
+          analysis: result.report,
+        });
+        pendingSource.current = null;
+      } catch (error) {
+        if (pending.requestId === request.current && !controller.signal.aborted)
+          dispatch({
+            type: "file-error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Analysis failed. Please try again.",
+          });
+      } finally {
+        if (pending.requestId === request.current) running.current = false;
+      }
+    },
+    [editingDispatch],
   );
 
   useEffect(() => {
@@ -164,6 +212,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         returnToImport,
         openSection,
         selectFiles,
+        startAnalysis,
       }}
     >
       {children}

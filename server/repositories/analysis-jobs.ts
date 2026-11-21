@@ -1,4 +1,7 @@
-import type { AnalysisJob } from "../../shared/contracts/analysis-job";
+import type {
+  AnalysisJob,
+  AnalysisProvenance,
+} from "../../shared/contracts/analysis-job";
 
 const LEASE_SECONDS = 15 * 60;
 export async function expireJobs(db: D1Database, guestId: string, now: number) {
@@ -12,15 +15,20 @@ export async function expireJobs(db: D1Database, guestId: string, now: number) {
 export async function reserveJob(
   db: D1Database,
   guestId: string,
-  input: { id: string; sourceId: string; fileBytes: number },
+  input: {
+    id: string;
+    sourceId: string;
+    fileBytes: number;
+    provenance?: AnalysisProvenance;
+  },
   now: number,
 ) {
   await expireJobs(db, guestId, now);
   // One atomic INSERT + trigger: competing tabs cannot both spend the last slot.
   await db
     .prepare(
-      `INSERT INTO analysis_jobs (id, guest_id, source_id, file_bytes, created_at, expires_at)
-    SELECT ?, id, ?, ?, ?, ? FROM guests
+      `INSERT INTO analysis_jobs (id, guest_id, source_id, file_bytes, created_at, expires_at, provenance)
+    SELECT ?, id, ?, ?, ?, ?, ? FROM guests
     WHERE id = ? AND used_videos + reserved_videos < granted_videos
     ON CONFLICT DO NOTHING`,
     )
@@ -30,6 +38,7 @@ export async function reserveJob(
       input.fileBytes,
       now,
       now + LEASE_SECONDS,
+      input.provenance ? JSON.stringify(input.provenance) : null,
       guestId,
     )
     .run();
@@ -46,6 +55,7 @@ export async function changeJob(
   id: string,
   action: "complete" | "cancel" | "heartbeat",
   now: number,
+  timings?: Record<string, number | undefined>,
 ) {
   await expireJobs(db, guestId, now);
   if (action === "heartbeat") {
@@ -58,9 +68,14 @@ export async function changeJob(
   } else {
     await db
       .prepare(
-        "UPDATE analysis_jobs SET status = ? WHERE id = ? AND guest_id = ? AND status = 'reserved'",
+        "UPDATE analysis_jobs SET status = ?, timings = ? WHERE id = ? AND guest_id = ? AND status = 'reserved'",
       )
-      .bind(action === "complete" ? "completed" : "cancelled", id, guestId)
+      .bind(
+        action === "complete" ? "completed" : "cancelled",
+        action === "complete" && timings ? JSON.stringify(timings) : null,
+        id,
+        guestId,
+      )
       .run();
   }
   return db

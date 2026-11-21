@@ -104,9 +104,11 @@ export function FramingTelemetry({
               Sound Events Detected
             </span>
             <span className="font-code text-on-surface">
-              {snapshot.soundEvents === undefined
-                ? "—"
-                : snapshot.soundEvents.toLocaleString()}
+              {snapshot.soundScanSkipped
+                ? "Not enabled"
+                : snapshot.soundEvents === undefined
+                  ? "—"
+                  : snapshot.soundEvents.toLocaleString()}
             </span>
           </div>
           <div

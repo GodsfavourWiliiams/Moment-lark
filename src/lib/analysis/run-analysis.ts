@@ -3,17 +3,44 @@ import type { AnalysisSnapshot } from "../../types/analysis";
 import type { AnalysisEvent } from "./protocol";
 import { loadGuestUsage } from "../../services/guest";
 import { analysisJobRequest } from "../../services/analysis-jobs";
+import {
+  DEFAULT_ANALYSIS_OPTIONS,
+  sourceGuidance,
+  type AnalysisOptions,
+} from "./options";
+import { PROMPT_VERSION, SCHEMA_VERSION } from "./prompts";
+import compiled from "./prompts/compiled.json";
+import { SPEECH_MODEL, SOUND_MODEL, RANK_MODEL, RANK_REVISION } from "./models";
+import type {
+  AnalysisReport,
+  AnalysisProvenance,
+} from "../../../shared/contracts/analysis-job";
 
 export async function runAnalysis(
   file: File,
   source: MediaSource,
   signal: AbortSignal,
   onProgress: (snapshot: AnalysisSnapshot) => void,
-): Promise<ClipDocument[]> {
+  options: AnalysisOptions = DEFAULT_ANALYSIS_OPTIONS,
+): Promise<{ clips: ClipDocument[]; report: AnalysisReport }> {
   signal.throwIfAborted();
+  const guidance = sourceGuidance(source.durationInFrames / source.fps);
+  if (guidance.blocked) throw new Error(guidance.message);
   await loadGuestUsage();
   signal.throwIfAborted();
   const id = crypto.randomUUID();
+  const provenance: AnalysisProvenance = {
+    promptId: "highlights",
+    promptVersion: PROMPT_VERSION,
+    schemaVersion: SCHEMA_VERSION as "highlights-result@1",
+    repairVersion: compiled["json-repair"].version,
+    speechModel: `${SPEECH_MODEL.id}@${SPEECH_MODEL.revision}`,
+    soundModel: options.soundEvents
+      ? `${SOUND_MODEL.id}@${SOUND_MODEL.revision}`
+      : null,
+    rankingModel: `${RANK_MODEL}@${RANK_REVISION}`,
+  };
+  let timings: Record<string, number> = {};
   let worker: Worker | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let reserved = false;
@@ -27,6 +54,7 @@ export async function runAnalysis(
       id,
       sourceId: source.id,
       fileBytes: file.size,
+      provenance,
     });
     reserved = job.status === "reserved";
     if (!reserved)
@@ -59,8 +87,10 @@ export async function runAnalysis(
       worker!.onmessage = (event: MessageEvent<AnalysisEvent>) => {
         if (signal.aborted) return;
         if (event.data.type === "progress") onProgress(event.data.snapshot);
-        else if (event.data.type === "complete") finish(event.data.clips);
-        else finish(undefined, new Error(event.data.message));
+        else if (event.data.type === "complete") {
+          timings = event.data.timings;
+          finish(event.data.clips);
+        } else finish(undefined, new Error(event.data.message));
       };
       let checking = false;
       heartbeat = setInterval(() => {
@@ -87,19 +117,19 @@ export async function runAnalysis(
             checking = false;
           });
       }, 60_000);
-      worker!.postMessage({ file, source });
+      worker!.postMessage({ file, source, options });
     });
     signal.throwIfAborted();
     worker.terminate();
     clearInterval(heartbeat);
-    const completed = await analysisJobRequest("complete", { id });
+    const completed = await analysisJobRequest("complete", { id, timings });
     if (completed.status !== "completed")
       throw new Error(
         "The analysis reservation expired before completion. Please retry.",
       );
     finished = true;
     signal.throwIfAborted();
-    return clips;
+    return { clips, report: { jobId: id, provenance, timings } };
   } finally {
     signal.removeEventListener("abort", cancel);
     clearInterval(heartbeat);

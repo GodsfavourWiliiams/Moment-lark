@@ -30,7 +30,7 @@ export type RankedMoment = z.infer<
 >["moments"][number];
 
 /** Short, overlapping evidence batches bound the LLM's context independently of video length. */
-export function evidenceBatches(evidence: Evidence[]) {
+export function evidenceBatches(evidence: Evidence[], byteBudget = 2600) {
   const batches: Evidence[][] = [];
   let batch: Evidence[] = [];
   const bytes = (value: unknown) =>
@@ -42,7 +42,7 @@ export function evidenceBatches(evidence: Evidence[]) {
     while (bytes(excerpt.join("")) > 2000) excerpt.pop();
     const item = { ...original, text: excerpt.join("") };
     const exceedsBudget = () =>
-      bytes([...batch, item]) > 2600 || item.end - batch[0].start > 180;
+      bytes([...batch, item]) > byteBudget || item.end - batch[0].start > 180;
     if (batch.length && exceedsBudget()) {
       batches.push(batch);
       batch = batch.slice(-2);
@@ -52,6 +52,33 @@ export function evidenceBatches(evidence: Evidence[]) {
   }
   if (batch.length) batches.push(batch);
   return batches;
+}
+
+/** Use the actual model tokenizer, not bytes, to pack English and multilingual inputs safely. */
+export async function rankingBatches(
+  evidence: Evidence[],
+  countTokens: (batch: Evidence[]) => Promise<number>,
+  maxTokens = 2700,
+) {
+  const result: Evidence[][] = [];
+  async function fit(batch: Evidence[]): Promise<void> {
+    if ((await countTokens(batch)) <= maxTokens) {
+      result.push(batch);
+      return;
+    }
+    if (batch.length === 1)
+      throw new Error(
+        "An evidence segment exceeds the local model context budget.",
+      );
+    const middle = Math.ceil(batch.length / 2);
+    await fit(batch.slice(0, middle));
+    // One segment of context at the boundary when recursion can still make progress.
+    await fit(
+      batch.slice(middle > 1 && batch.length > 3 ? middle - 1 : middle),
+    );
+  }
+  for (const batch of evidenceBatches(evidence, 12000)) await fit(batch);
+  return result;
 }
 
 export function toClips(
@@ -119,7 +146,7 @@ export function toClips(
               clip.outFrame - clip.inFrame,
               other.outFrame - other.inFrame,
             ) >
-          0.5
+          0.1
         );
       })
     )

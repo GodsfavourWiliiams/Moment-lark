@@ -37,6 +37,7 @@ export function editingReducer(
       ...state,
       document: {
         ...state.document,
+        analysis: action.analysis,
         clips: action.clips.map((clip) => ({
           ...clip,
           status: "unreviewed",

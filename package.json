@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run prompts:check && next build",
+    "prompts:generate": "node --import tsx scripts/prompts.mts --write",
+    "prompts:check": "node --import tsx scripts/prompts.mts",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit && tsc -p server/tsconfig.json",
     "test": "node --import tsx --test tests/*.test.ts server/tests/*.test.ts",

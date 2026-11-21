@@ -96,6 +96,41 @@ export function SuggestionsPage() {
                 <p className="mt-0.5 text-body-sm text-on-surface-variant">
                   {clips.length} moments from your recording
                 </p>
+                {editing.document.analysis && (
+                  <details className="mt-2 text-body-sm text-on-surface-variant">
+                    <summary className="cursor-pointer hover:text-on-surface">
+                      Analysis timing &amp; models
+                    </summary>
+                    <p className="mt-1">
+                      Whisper Base + Qwen2.5 1.5B
+                      {editing.document.analysis.provenance.soundModel
+                        ? " + AudioSet AST"
+                        : " · speech only"}
+                    </p>
+                    <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+                      {Object.entries(editing.document.analysis.timings).map(
+                        ([name, milliseconds]) => (
+                          <div key={name} className="contents">
+                            <dt>
+                              {(
+                                {
+                                  speechLoad: "Speech model load",
+                                  transcription: "Transcription",
+                                  soundLoad: "Sound model load",
+                                  soundScan: "Sound scan",
+                                  rankerLoad: "Ranking model load",
+                                  ranking: "Moment selection",
+                                  total: "Total",
+                                } as Record<string, string>
+                              )[name] ?? name}
+                            </dt>
+                            <dd>{(milliseconds / 1000).toFixed(1)}s</dd>
+                          </div>
+                        ),
+                      )}
+                    </dl>
+                  </details>
+                )}
               </div>
               <span className="shrink-0 rounded bg-surface-container-high px-1 py-1 text-label-sm">
                 Analysis results

@@ -1,7 +1,11 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie } from "hono/cookie";
-import { reserveAnalysisSchema } from "../../shared/contracts/analysis-job";
+import {
+  reserveAnalysisSchema,
+  analysisOperationSchema,
+  completeAnalysisSchema,
+} from "../../shared/contracts/analysis-job";
 import { getLocalGuestPolicy, LOCAL_SESSION_COOKIE } from "../config/guest";
 import { readGuestUsage } from "../services/guest-session";
 import { changeJob, reserveJob } from "../repositories/analysis-jobs";
@@ -84,14 +88,12 @@ analysisJobRoutes.post("/:action?", async (c) => {
       );
     return c.json(job);
   }
+  const operation = (
+    action === "complete" ? completeAnalysisSchema : analysisOperationSchema
+  ).safeParse(body);
   if (
     !["heartbeat", "complete", "cancel"].includes(action) ||
-    !body ||
-    typeof body !== "object" ||
-    Object.keys(body).length !== 1 ||
-    !("id" in body) ||
-    typeof body.id !== "string" ||
-    !/^[0-9a-f-]{36}$/i.test(body.id)
+    !operation.success
   )
     return c.json(
       {
@@ -105,9 +107,12 @@ analysisJobRoutes.post("/:action?", async (c) => {
   const job = await changeJob(
     policy.db,
     usage.guest.id,
-    body.id,
+    operation.data.id,
     action as "heartbeat" | "complete" | "cancel",
     now,
+    action === "complete"
+      ? completeAnalysisSchema.parse(body).timings
+      : undefined,
   );
   if (!job)
     return c.json(

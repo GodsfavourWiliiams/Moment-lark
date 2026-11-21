@@ -20,6 +20,8 @@ export function WelcomePage() {
         source={studio.reading ? null : (editing.document?.source ?? null)}
         reading={studio.reading}
         snapshot={studio.analysis}
+        awaitingAnalysis={studio.awaitingAnalysis}
+        onStart={studio.startAnalysis}
         error={studio.error}
         complete={editing.reached.suggestions}
         onCancel={studio.returnToImport}

@@ -1,7 +1,7 @@
 import { Input, BlobSource, ALL_FORMATS } from "mediabunny";
 import { readAudioWindow, rms } from "../lib/analysis/audio";
 import {
-  evidenceBatches,
+  rankingBatches,
   rankedMomentsSchema,
   speechEvidence,
   toClips,
@@ -12,6 +12,8 @@ import {
   MOMENT_JSON_SCHEMA,
   MOMENT_SYSTEM_PROMPT,
   momentUserPrompt,
+  REPAIR_SYSTEM_PROMPT,
+  repairUserPrompt,
 } from "../lib/analysis/prompts";
 import {
   SPEECH_MODEL,
@@ -20,6 +22,7 @@ import {
   RANK_REVISION,
 } from "../lib/analysis/models";
 import type { AnalysisRequest, AnalysisEvent } from "../lib/analysis/protocol";
+import { stageThroughput, sourceGuidance } from "../lib/analysis/options";
 import type { AnalysisSnapshot } from "../types/analysis";
 
 function send(event: AnalysisEvent) {
@@ -35,7 +38,29 @@ function report(update: AnalysisSnapshot) {
   send({ type: "progress", snapshot });
 }
 
-async function analyze({ file, source }: AnalysisRequest) {
+async function analyze({ file, source, options }: AnalysisRequest) {
+  const duration = source.durationInFrames / source.fps;
+  const guidance = sourceGuidance(duration);
+  if (guidance.blocked) throw new Error(guidance.message);
+  const timings: Record<string, number> = {};
+  const started = performance.now();
+  const measure = async <T>(
+    name: string,
+    task: () => Promise<T>,
+  ): Promise<T> => {
+    const begin = performance.now();
+    try {
+      return await task();
+    } finally {
+      timings[name] = Math.round(performance.now() - begin);
+    }
+  };
+  const complete = (clips: import("../types/editing").ClipDocument[]) =>
+    send({
+      type: "complete",
+      clips,
+      timings: { ...timings, total: Math.round(performance.now() - started) },
+    });
   const input = new Input({
     source: new BlobSource(file),
     formats: ALL_FORMATS,
@@ -45,7 +70,7 @@ async function analyze({ file, source }: AnalysisRequest) {
     const track = await input.getPrimaryAudioTrack();
     // No audio is a real empty result, not a fabricated visual analysis.
     if (!track) {
-      send({ type: "complete", clips: [] });
+      complete([]);
       return;
     }
     if (!(await track.canDecode()))
@@ -76,17 +101,15 @@ async function analyze({ file, source }: AnalysisRequest) {
         });
     };
     const evidence: Evidence[] = [];
-    const duration = source.durationInFrames / source.fps;
-    const speech = await pipeline(
-      "automatic-speech-recognition",
-      SPEECH_MODEL.id,
-      {
+    const speech = await measure("speechLoad", () =>
+      pipeline("automatic-speech-recognition", SPEECH_MODEL.id, {
         revision: SPEECH_MODEL.revision,
         device: "webgpu",
         dtype: { encoder_model: "fp32", decoder_model_merged: "q4" },
         progress_callback,
-      },
+      }),
     );
+    const transcriptionStart = performance.now();
     try {
       report({
         stage: 2,
@@ -102,8 +125,8 @@ async function analyze({ file, source }: AnalysisRequest) {
           const output = await speech(audio, {
             return_timestamps: true,
             task: "transcribe",
-            chunk_length_s: 30,
-            stride_length_s: 5,
+            num_beams: 1,
+            do_sample: false,
           });
           const result = Array.isArray(output) ? output[0] : output;
           evidence.push(
@@ -117,7 +140,15 @@ async function analyze({ file, source }: AnalysisRequest) {
             ),
           );
         }
+        const throughput = stageThroughput(
+          end,
+          duration,
+          performance.now() - transcriptionStart,
+        );
         report({
+          timing: throughput
+            ? `Transcription: ${throughput.speed.toFixed(1)}× real time · about ${Math.ceil(throughput.remainingSeconds / 60)} min left in this stage`
+            : `Transcription: ${Math.round((performance.now() - transcriptionStart) / 1000)}s elapsed · measuring speed…`,
           progress: 10 + (45 * end) / duration,
           detail: `Speech analyzed: ${Math.round(end)} / ${Math.ceil(duration)} seconds`,
           frame: Math.min(
@@ -128,71 +159,98 @@ async function analyze({ file, source }: AnalysisRequest) {
         if (end === duration) break;
       }
     } finally {
+      timings.transcription = Math.round(
+        performance.now() - transcriptionStart,
+      );
       await speech.dispose();
     }
     const words = evidence.reduce(
       (count, e) => count + e.text.split(/\s+/).length,
       0,
     );
-    report({
-      stage: 3,
-      progress: 55,
-      speechWpm: Math.round(words / (duration / 60)),
-      detail: "Loading sound-event model…",
-      stageResults: { 2: `${evidence.length} speech segments` },
-    });
-    // Run models sequentially to avoid retaining speech + sound + LLM allocations together.
-    const classifier = await pipeline("audio-classification", SOUND_MODEL.id, {
-      revision: SOUND_MODEL.revision,
-      device: "wasm",
-      dtype: "q8",
-      progress_callback,
-    });
     let eventCount = 0;
-    try {
-      for (let start = 0; start < duration; start += 10) {
-        const end = Math.min(duration, start + 10);
-        const audio = await readAudioWindow(track, start, end);
-        const level = rms(audio);
-        if (level > 0.00001) {
-          const output = await classifier(audio, { top_k: 8 });
-          const classes = Array.isArray(output[0]) ? output[0] : output;
-          for (const item of classes) {
-            if (
-              !("label" in item) ||
-              item.score < 0.15 ||
-              !/laugh|applause|cheer|shout|scream|gunshot|explosion/i.test(
-                item.label,
+    if (options.soundEvents) {
+      report({
+        stage: 3,
+        progress: 55,
+        speechWpm: Math.round(words / (duration / 60)),
+        detail: "Loading sound-event model…",
+        stageResults: { 2: `${evidence.length} speech segments` },
+        timing: "Loading sound model…",
+      });
+      // Run models sequentially to avoid retaining speech + sound + LLM allocations together.
+      const classifier = await measure("soundLoad", () =>
+        pipeline("audio-classification", SOUND_MODEL.id, {
+          revision: SOUND_MODEL.revision,
+          device: "wasm",
+          dtype: "q8",
+          progress_callback,
+        }),
+      );
+      const soundStart = performance.now();
+      try {
+        for (let start = 0; start < duration; start += 10) {
+          const end = Math.min(duration, start + 10);
+          const audio = await readAudioWindow(track, start, end);
+          const level = rms(audio);
+          if (level > 0.00001) {
+            const output = await classifier(audio, { top_k: 8 });
+            const classes = Array.isArray(output[0]) ? output[0] : output;
+            for (const item of classes) {
+              if (
+                !("label" in item) ||
+                item.score < 0.15 ||
+                !/laugh|applause|cheer|shout|scream|gunshot|explosion/i.test(
+                  item.label,
+                )
               )
-            )
-              continue;
-            evidence.push({
-              id: `a${eventCount++}`,
-              start,
-              end,
-              kind: "sound",
-              text: `Possible ${item.label.toLowerCase()} (classifier score ${item.score.toFixed(2)})`,
-            });
+                continue;
+              evidence.push({
+                id: `a${eventCount++}`,
+                start,
+                end,
+                kind: "sound",
+                text: `Possible ${item.label.toLowerCase()} (classifier score ${item.score.toFixed(2)})`,
+              });
+            }
           }
+          report({
+            progress: 55 + (20 * end) / duration,
+            audioLevel: Math.min(1, level),
+            soundEvents: eventCount,
+            timing: `Sound scan: ${Math.round((performance.now() - soundStart) / 1000)}s elapsed`,
+            detail: `Sound analyzed: ${Math.round(end)} / ${Math.ceil(duration)} seconds`,
+          });
         }
-        report({
-          progress: 55 + (20 * end) / duration,
-          audioLevel: Math.min(1, level),
-          soundEvents: eventCount,
-          detail: `Sound analyzed: ${Math.round(end)} / ${Math.ceil(duration)} seconds`,
-        });
+      } finally {
+        timings.soundScan = Math.round(performance.now() - soundStart);
+        await classifier.dispose();
       }
-    } finally {
-      await classifier.dispose();
+    } else {
+      report({
+        stage: 3,
+        progress: 75,
+        speechWpm: Math.round(words / (duration / 60)),
+        soundScanSkipped: true,
+        stageResults: {
+          2: `${evidence.length} speech segments`,
+          3: "Skipped · speech only",
+        },
+      });
     }
     report({
       stage: 4,
       progress: 75,
       detail: "Loading local clip-selection model…",
-      stageResults: { 3: `${eventCount} sound events` },
+      timing: "Model loading is separate from transcription time",
+      stageResults: {
+        3: options.soundEvents
+          ? `${eventCount} sound events`
+          : "Skipped · speech only",
+      },
     });
     if (!evidence.length) {
-      send({ type: "complete", clips: [] });
+      complete([]);
       return;
     }
     const { CreateMLCEngine, prebuiltAppConfig } = await import(
@@ -203,23 +261,35 @@ async function analyze({ file, source }: AnalysisRequest) {
     );
     if (!record)
       throw new Error("The local clip-selection model is not configured.");
-    const engine = await CreateMLCEngine(RANK_MODEL, {
-      appConfig: {
-        ...prebuiltAppConfig,
-        model_list: [
-          {
-            ...record,
-            model: `https://huggingface.co/mlc-ai/${RANK_MODEL}/resolve/${RANK_REVISION}/`,
-          },
-        ],
-      },
-      initProgressCallback: (p) =>
-        report({
-          detail: `Loading clip-selection model: ${Math.round(p.progress * 100)}%`,
-        }),
-    });
+    const engine = await measure("rankerLoad", () =>
+      CreateMLCEngine(RANK_MODEL, {
+        appConfig: {
+          ...prebuiltAppConfig,
+          model_list: [
+            {
+              ...record,
+              model: `https://huggingface.co/mlc-ai/${RANK_MODEL}/resolve/${RANK_REVISION}/`,
+            },
+          ],
+        },
+        initProgressCallback: (p) =>
+          report({
+            detail: `Loading clip-selection model: ${Math.round(p.progress * 100)}%`,
+          }),
+      }),
+    );
+    const rankingStart = performance.now();
     try {
-      const batches = evidenceBatches(evidence);
+      // 2700 prompt tokens + 850 output + 256 chat-template headroom < 4096 context.
+      const batches = await rankingBatches(
+        evidence,
+        async (batch) =>
+          (
+            await engine.tokenize(
+              MOMENT_SYSTEM_PROMPT + "\n" + momentUserPrompt(batch),
+            )
+          ).length,
+      );
       const results: { moment: RankedMoment; evidence: Evidence[] }[] = [];
       for (let i = 0; i < batches.length; i++) {
         const batch = batches[i];
@@ -227,12 +297,32 @@ async function analyze({ file, source }: AnalysisRequest) {
           detail: `Selecting moments: section ${i + 1} of ${batches.length}`,
         });
         let valid = false;
+        let invalid = "";
+        let errors = ["Invalid result"];
         for (let attempt = 0; attempt < 2; attempt++) {
+          const messages =
+            attempt === 0
+              ? [
+                  { role: "system" as const, content: MOMENT_SYSTEM_PROMPT },
+                  { role: "user" as const, content: momentUserPrompt(batch) },
+                ]
+              : [
+                  { role: "system" as const, content: REPAIR_SYSTEM_PROMPT },
+                  {
+                    role: "user" as const,
+                    content: repairUserPrompt(invalid, batch, errors),
+                  },
+                ];
+          if (
+            (
+              await engine.tokenize(
+                messages.map((message) => message.content).join("\n"),
+              )
+            ).length > 2700
+          )
+            break;
           const completion = await engine.chat.completions.create({
-            messages: [
-              { role: "system", content: MOMENT_SYSTEM_PROMPT },
-              { role: "user", content: momentUserPrompt(batch) },
-            ],
+            messages,
             temperature: 0,
             seed: 42,
             max_tokens: 850,
@@ -242,7 +332,11 @@ async function analyze({ file, source }: AnalysisRequest) {
             },
           });
           const choice = completion.choices[0];
-          if (choice?.finish_reason === "length") continue;
+          invalid = choice?.message.content ?? "";
+          if (choice?.finish_reason === "length") {
+            errors = ["Response exceeded output limit"];
+            continue;
+          }
           const parsed = rankedMomentsSchema.safeParse(
             (() => {
               try {
@@ -252,15 +346,22 @@ async function analyze({ file, source }: AnalysisRequest) {
               }
             })(),
           );
-          if (!parsed.success) continue;
+          if (!parsed.success) {
+            errors = parsed.error.issues.map(
+              (issue) => `${issue.path.join(".")}: ${issue.code}`,
+            );
+            continue;
+          }
           if (
             parsed.data.moments.some(
               (m) =>
                 !batch.some((e) => e.id === m.startId) ||
                 !batch.some((e) => e.id === m.endId),
             )
-          )
+          ) {
+            errors = ["Unknown evidence IDs"];
             continue;
+          }
           for (const moment of parsed.data.moments)
             results.push({ moment, evidence: batch });
           valid = true;
@@ -270,7 +371,10 @@ async function analyze({ file, source }: AnalysisRequest) {
           throw new Error(
             "The local AI returned an invalid result. Please retry analysis; this attempt will not use a video slot.",
           );
-        report({ progress: 75 + (24 * (i + 1)) / batches.length });
+        report({
+          progress: 75 + (24 * (i + 1)) / batches.length,
+          timing: `Clip selection: ${Math.round((performance.now() - rankingStart) / 1000)}s elapsed · ${i + 1}/${batches.length} sections`,
+        });
       }
       const clips = toClips(results, evidence, source);
       report({
@@ -278,7 +382,8 @@ async function analyze({ file, source }: AnalysisRequest) {
         detail: "Saving analysis completion…",
         stageResults: { 4: `${clips.length} suggestions` },
       });
-      send({ type: "complete", clips });
+      timings.ranking = Math.round(performance.now() - rankingStart);
+      complete(clips);
     } finally {
       await engine.unload();
     }

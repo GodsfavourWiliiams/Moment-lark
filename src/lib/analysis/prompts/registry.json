@@ -1,0 +1,38 @@
+{
+  "highlights": {
+    "active": "v1",
+    "versions": {
+      "v1": {
+        "file": "highlights/v1.md",
+        "sha256": "a43974209dbf1202c32eda534328cc0edf6b48ac67cfe0d85b5c4cb4b898b555"
+      }
+    }
+  },
+  "injection-defense": {
+    "active": "v1",
+    "versions": {
+      "v1": {
+        "file": "_shared/injection-defense.v1.md",
+        "sha256": "9795e7057bac7c80db95cbe1a49280d80d341af176d11535c4979fb7767ace9b"
+      }
+    }
+  },
+  "output-rules": {
+    "active": "v1",
+    "versions": {
+      "v1": {
+        "file": "_shared/output-rules.v1.md",
+        "sha256": "93a490cc41e29333d54d76d8155134c7e88092be707ce825189ec91a54c35a6d"
+      }
+    }
+  },
+  "json-repair": {
+    "active": "v1",
+    "versions": {
+      "v1": {
+        "file": "json-repair/v1.md",
+        "sha256": "8426f0aa72023289b5bcfd219d1a52eae266da15917eeaaa0b96b7f22cbd75c7"
+      }
+    }
+  }
+}

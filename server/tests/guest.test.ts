@@ -67,6 +67,7 @@ describe("guest API with local D1", () => {
       "0002_local_guest_allowance.sql",
       "0003_video_allowance.sql",
       "0004_analysis_jobs.sql",
+      "0005_analysis_diagnostics.sql",
     ]) {
       await applyMigration(db, name);
     }
@@ -238,6 +239,7 @@ describe("guest API with local D1", () => {
     await migrationDb.prepare("UPDATE guests SET used_seconds = 0").run();
     await applyMigration(migrationDb, "0003_video_allowance.sql");
     await applyMigration(migrationDb, "0004_analysis_jobs.sql");
+    await applyMigration(migrationDb, "0005_analysis_diagnostics.sql");
     const result = await usage("ml_guest_local=" + token, {
       ...env,
       DB: migrationDb,
@@ -416,6 +418,67 @@ describe("guest API with local D1", () => {
     id: crypto.randomUUID(),
     sourceId: crypto.randomUUID(),
     fileBytes: 1024,
+  });
+  it("stores versioned diagnostics without content and preserves the first completion", async () => {
+    const guest = await session();
+    const provenance = {
+      promptId: "highlights",
+      promptVersion: "v1",
+      schemaVersion: "highlights-result@1",
+      repairVersion: "v1",
+      speechModel: "whisper-base@revision",
+      soundModel: null,
+      rankingModel: "qwen@revision",
+    };
+    const job = { ...newJob(), provenance };
+    assert.equal(
+      (
+        await jobRequest(guest.cookie, {
+          ...job,
+          provenance: { ...provenance, transcript: "private content" },
+        })
+      ).status,
+      400,
+    );
+    assert.equal((await jobRequest(guest.cookie, job)).status, 200);
+    const timings = {
+      speechLoad: 12,
+      transcription: 100,
+      rankerLoad: 20,
+      ranking: 30,
+      total: 170,
+    };
+    assert.equal(
+      (
+        await jobRequest(
+          guest.cookie,
+          { id: job.id, timings: { total: -1 } },
+          "complete",
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (await jobRequest(guest.cookie, { id: job.id, timings }, "complete"))
+        .status,
+      200,
+    );
+    assert.equal(
+      (
+        await jobRequest(
+          guest.cookie,
+          { id: job.id, timings: { total: 999 } },
+          "complete",
+        )
+      ).status,
+      200,
+    );
+    const stored = await db
+      .prepare("SELECT provenance, timings FROM analysis_jobs WHERE id = ?")
+      .bind(job.id)
+      .first<{ provenance: string; timings: string }>();
+    assert.deepEqual(JSON.parse(stored!.provenance), provenance);
+    assert.deepEqual(JSON.parse(stored!.timings), timings);
   });
   it("reserves atomically across tabs, completes once and rejects overspending", async () => {
     const guest = await session();

@@ -4,6 +4,7 @@ export function AnalysisProgress({
   stage,
   remainingSeconds,
   detail,
+  timing,
   complete,
 }: {
   progress?: number;
@@ -11,6 +12,7 @@ export function AnalysisProgress({
   stage?: number;
   remainingSeconds?: number;
   detail?: string;
+  timing?: string;
   complete: boolean;
 }) {
   const percent = complete
@@ -58,6 +60,11 @@ export function AnalysisProgress({
                 ? (detail ?? "Awaiting analysis")
                 : `Estimated ~${Math.ceil(remainingSeconds)}s remaining`}
           </span>
+          {timing && (
+            <span className="text-body-sm text-on-surface-variant">
+              {timing}
+            </span>
+          )}
         </div>
       </div>
       <div

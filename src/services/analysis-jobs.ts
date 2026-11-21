@@ -1,10 +1,19 @@
-import { analysisJobSchema } from "../../shared/contracts/analysis-job";
+import {
+  analysisJobSchema,
+  type AnalysisProvenance,
+} from "../../shared/contracts/analysis-job";
 import { GuestApiError } from "./guest";
 
 /** Retrying a lost response is safe: each operation uses the same job ID. */
 export async function analysisJobRequest(
   action: "" | "heartbeat" | "complete" | "cancel",
-  body: { id: string; sourceId?: string; fileBytes?: number },
+  body: {
+    id: string;
+    sourceId?: string;
+    fileBytes?: number;
+    provenance?: AnalysisProvenance;
+    timings?: Record<string, number>;
+  },
 ) {
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
