@@ -1,0 +1,17 @@
+overrides:
+  '@huggingface/transformers>sharp': 0.35.5
+
+# Existing, pinned Cloudflare tooling predates the move to pnpm 12.
+# Keep the release-age check for all other packages and future versions.
+minimumReleaseAgeExclude:
+  - '@cloudflare/workers-types@5.20261121.1'
+  - '@cloudflare/workers-utils@0.56.0'
+  - 'miniflare@5.20261119.0-beta'
+  - 'wrangler@4.166.0'
+
+allowBuilds:
+  'esbuild@0.27.7 || 0.28.2': true
+  'workerd@1.20261119.1': true
+  # Browser inference does not need the Node installer's CUDA download.
+  'onnxruntime-node@1.21.0': false
+  'protobufjs@7.6.6': false

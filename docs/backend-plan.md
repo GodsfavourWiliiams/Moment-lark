@@ -1,6 +1,6 @@
 # MVP backend: stack, guest limits and learning path
 
-Updated 21 November 2026. Local guest sessions and analysis-job reservations are implemented; public guest issuance and abuse controls below are still pending configuration and implementation. This accompanies the [MVP checklist](mvp-plan.md) and [product tiers](product-tiers.md).
+Updated 21 November 2026. Local and public guest sessions, analysis reservations, Turnstile verification and network counters are implemented. Remote activation still requires secrets, migrations and a real hosted-widget check. Follow [the deployment walkthrough](deployment.md). This accompanies the [MVP checklist](mvp-plan.md) and [product tiers](product-tiers.md).
 
 ## First working slice: local guest sessions
 
@@ -24,7 +24,7 @@ An analysis job is one attempt to analyze a source. `POST /api/analysis-jobs` at
 
 `heartbeat` renews a 15-minute lease once a minute. `complete` changes one reserved slot to used; `cancel` releases it. Reading usage or starting/updating a job expires abandoned reservations. There is no daily allowance reset. A network failure can hold a slot until lease expiry. Completion and file size are browser-reported: this is a product allowance, not trusted metering or proof of AI execution. Re-importing creates a new source; reopening/editing/exporting the current source creates no job.
 
-Guest routes return `503 guest_unavailable` unless explicitly in local mode on a loopback hostname with a database and valid policy settings. Production/preview guest creation stays off until separate D1 databases, sessions, network limits, and Turnstile are ready. This local slice deliberately does not claim incognito/IP protection: a new cookie can create another local guest. Expired records are retained in the local development database; production cleanup/retention must be implemented before launch.
+Guest routes use loopback-only local mode or exact-origin HTTPS public mode. Public mode requires the D1 binding, allowance settings, Turnstile keys and a network-hashing secret; missing settings return `503 guest_unavailable`. Production and deployed dev have separate D1 bindings. Preview URLs are not automatically trusted. This local slice deliberately does not claim incognito/IP protection: a new cookie can create another local guest. Expired records are retained in the local development database; production cleanup/retention must be implemented before launch.
 
 Validation includes real local D1 tests for session reuse, expiry, guest isolation, token hashing, cookie flags, origin checks, bad payloads, transaction rollback, invalid configuration, and safe database errors. The client tests cover duplicate initialization, outage behavior, and blocked cookies. Tests additionally cover concurrent reservation, idempotent completion, cancellation, expiry, heartbeat renewal and ownership. Import first reads metadata and displays a preflight with download costs and short/long-video guidance. Only clicking Start local analysis reserves a slot and invokes the models. Validated results and completion acknowledgment automatically open Suggestions.
 
@@ -159,3 +159,8 @@ For paid cloud releases, evaluate R2 for media storage and a managed account pro
 | 7 | Deploy preview and test failures | Environment isolation, logs, quotas and production checks |
 
 Complete each slice with a visible UI result and focused tests before extending it. Test same-IP incognito requests, changed IP with existing cookie, unrelated guests on shared Wi-Fi, forged headers, malformed input, reused challenges, duplicate completion, concurrent reservations and expiry. Rough backend effort: 1–2 focused weeks for an experienced developer, or approximately 2–4 weeks while learning; revise after the first integrated slice.
+
+
+## Public implementation update
+
+Migration 0006 adds hashed network-window counters and verification-token redemption digests. Hostname/action/expiry checks, atomic replay protection, public host-only secure cookies, issuance throttles, aggregate network reservation/settlement, and hourly bounded cleanup of temporary protection records are implemented. The browser loads the site key from the API and can verify during Import or analysis preflight; no secret is embedded in the Next.js bundle. See [deployment.md](deployment.md) for the configured thresholds, SQL explanation, two database IDs and exact per-environment commands. These controls reduce automation; they do not prove unique identity or trusted local AI usage.

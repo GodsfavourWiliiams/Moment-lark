@@ -15,6 +15,7 @@ import { initialStudioState, studioReducer } from "@/state/studio";
 import { StudioContext } from "@/state/studio-context";
 import { sourceGuidance, type AnalysisOptions } from "@/lib/analysis/options";
 import type { MediaSource } from "@/types/editing";
+import { GuestApiError } from "@/services/guest";
 import { runAnalysis } from "@/lib/analysis/run-analysis";
 import { validateSourceFileSize } from "@/lib/media/source-limits";
 
@@ -162,7 +163,10 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         });
         pendingSource.current = null;
       } catch (error) {
-        if (pending.requestId === request.current && !controller.signal.aborted)
+        if (
+          pending.requestId === request.current &&
+          !controller.signal.aborted
+        ) {
           dispatch({
             type: "file-error",
             message:
@@ -170,6 +174,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
                 ? error.message
                 : "Analysis failed. Please try again.",
           });
+          if (
+            error instanceof GuestApiError &&
+            ["session_required", "challenge_required"].includes(error.code)
+          )
+            dispatch({ type: "video-ready" });
+        }
       } finally {
         if (pending.requestId === request.current) running.current = false;
       }

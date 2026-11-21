@@ -20,7 +20,10 @@ export async function digestSessionToken(token: string) {
   );
 }
 
-function toUsage(record: GuestRecord): GuestUsage {
+function toUsage(
+  record: GuestRecord,
+  mode: "local-development" | "public" = "local-development",
+): GuestUsage {
   return {
     guest: {
       id: record.id,
@@ -33,7 +36,7 @@ function toUsage(record: GuestRecord): GuestUsage {
       remainingVideos:
         record.granted_videos - record.used_videos - record.reserved_videos,
     },
-    mode: "local-development",
+    mode,
   };
 }
 
@@ -41,6 +44,7 @@ export async function readGuestUsage(
   db: D1Database,
   token: string | undefined,
   now: number,
+  mode: "local-development" | "public" = "local-development",
 ) {
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
   const record = await findGuestSession(
@@ -48,7 +52,7 @@ export async function readGuestUsage(
     await digestSessionToken(token),
     now,
   );
-  return record ? toUsage(record) : null;
+  return record ? toUsage(record, mode) : null;
 }
 
 export async function getOrCreateGuest(
@@ -56,8 +60,10 @@ export async function getOrCreateGuest(
   token: string | undefined,
   allowanceVideos: number,
   now: number,
+  publicContext?: { tokenDigest: string; networkWindow: string },
 ) {
-  const existing = await readGuestUsage(db, token, now);
+  const mode = publicContext ? "public" : "local-development";
+  const existing = await readGuestUsage(db, token, now, mode);
   if (existing) return { usage: existing, newToken: null };
 
   const newToken = hex(crypto.getRandomValues(new Uint8Array(32)));
@@ -69,15 +75,19 @@ export async function getOrCreateGuest(
     now,
     expiresAt,
     allowanceVideos,
+    publicContext,
   });
   return {
-    usage: toUsage({
-      id,
-      expires_at: expiresAt,
-      granted_videos: allowanceVideos,
-      used_videos: 0,
-      reserved_videos: 0,
-    }),
+    usage: toUsage(
+      {
+        id,
+        expires_at: expiresAt,
+        granted_videos: allowanceVideos,
+        used_videos: 0,
+        reserved_videos: 0,
+      },
+      mode,
+    ),
     newToken,
   };
 }

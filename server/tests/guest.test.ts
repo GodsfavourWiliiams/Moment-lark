@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { after, before, beforeEach, describe, it } from "node:test";
+import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import { Miniflare } from "miniflare";
 import app from "../index";
 import type { Bindings } from "../types";
 import { guestUsageSchema } from "../../shared/contracts/guest";
 import { digestSessionToken } from "../services/guest-session";
+import { maintainGuestRecords } from "../services/maintenance";
+import { networkWindow } from "../services/public-guest";
 import { insertGuestSession } from "../repositories/guests";
 
 describe("guest API with local D1", () => {
@@ -68,6 +70,7 @@ describe("guest API with local D1", () => {
       "0003_video_allowance.sql",
       "0004_analysis_jobs.sql",
       "0005_analysis_diagnostics.sql",
+      "0006_public_guests.sql",
     ]) {
       await applyMigration(db, name);
     }
@@ -86,6 +89,8 @@ describe("guest API with local D1", () => {
       db.prepare("DELETE FROM analysis_jobs"),
       db.prepare("DELETE FROM guest_sessions"),
       db.prepare("DELETE FROM guests"),
+      db.prepare("DELETE FROM turnstile_redemptions"),
+      db.prepare("DELETE FROM network_windows"),
     ]);
   });
 
@@ -240,6 +245,7 @@ describe("guest API with local D1", () => {
     await applyMigration(migrationDb, "0003_video_allowance.sql");
     await applyMigration(migrationDb, "0004_analysis_jobs.sql");
     await applyMigration(migrationDb, "0005_analysis_diagnostics.sql");
+    await applyMigration(migrationDb, "0006_public_guests.sql");
     const result = await usage("ml_guest_local=" + token, {
       ...env,
       DB: migrationDb,
@@ -318,7 +324,7 @@ describe("guest API with local D1", () => {
       400,
     );
     assert.equal(
-      (await create(undefined, { body: " ".repeat(1025) })).status,
+      (await create(undefined, { body: " ".repeat(4097) })).status,
       413,
     );
     assert.equal(
@@ -583,5 +589,386 @@ describe("guest API with local D1", () => {
         .first<number>("expires_at"))! >
         Math.floor(Date.now() / 1000) + 800,
     );
+  });
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+  const publicOrigin = "https://moment-lark.example";
+  const publicEnv = (): Bindings => ({
+    ...env,
+    GUEST_MODE: "public",
+    APP_ORIGIN: publicOrigin,
+    TURNSTILE_SITE_KEY: "public-site-key",
+    TURNSTILE_SECRET: "private-test-secret",
+    NETWORK_HASH_SECRET: "private-network-key-long-enough-32-characters",
+    NETWORK_GUESTS_PER_DAY: "3",
+    NETWORK_VIDEOS_PER_DAY: "9",
+  });
+  function publicRequest(
+    path: string,
+    body?: unknown,
+    cookie?: string,
+    bindings = publicEnv(),
+    extraHeaders: Record<string, string> = {},
+  ) {
+    return app.request(
+      publicOrigin + "/api/" + path,
+      {
+        method: body === undefined ? "GET" : "POST",
+        headers: {
+          Origin: publicOrigin,
+          "Content-Type": "application/json",
+          "CF-Connecting-IP": "192.0.2.10",
+          ...(cookie ? { Cookie: cookie } : {}),
+          ...extraHeaders,
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      },
+      bindings,
+    );
+  }
+  function mockVerify(overrides: Record<string, unknown> = {}) {
+    globalThis.fetch = async (url, init) => {
+      if (
+        String(url) !==
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+      )
+        return originalFetch(url, init);
+      assert.equal(
+        JSON.parse(String(init?.body)).secret,
+        "private-test-secret",
+      );
+      return Response.json({
+        success: true,
+        hostname: "moment-lark.example",
+        action: "guest_session",
+        challenge_ts: new Date().toISOString(),
+        ...overrides,
+      });
+    };
+  }
+  async function publicSession(
+    token = crypto.randomUUID(),
+    bindings = publicEnv(),
+  ) {
+    const response = await publicRequest(
+      "guest/session",
+      { turnstileToken: token },
+      undefined,
+      bindings,
+    );
+    assert.equal(response.status, 201, await response.clone().text());
+    return {
+      cookie: response.headers.get("set-cookie")!.split(";")[0],
+      header: response.headers.get("set-cookie")!,
+      usage: guestUsageSchema.parse(await response.json()),
+    };
+  }
+  it("requires production secrets, exact HTTPS origin and public mode before issuing challenges", async () => {
+    for (const overrides of [
+      { TURNSTILE_SECRET: undefined },
+      { NETWORK_HASH_SECRET: undefined },
+      { DB: undefined },
+      { APP_ORIGIN: "https://different.example" },
+      { GUEST_MODE: "local" },
+    ]) {
+      assert.equal(
+        (
+          await publicRequest("guest/challenge", undefined, undefined, {
+            ...publicEnv(),
+            ...overrides,
+          })
+        ).status,
+        503,
+      );
+    }
+    assert.equal(
+      (
+        await app.request(
+          "http://moment-lark.example/api/guest/challenge",
+          {},
+          publicEnv(),
+        )
+      ).status,
+      503,
+    );
+    const response = await publicRequest("guest/challenge");
+    assert.deepEqual(await response.json(), {
+      siteKey: "public-site-key",
+      action: "guest_session",
+    });
+    assert.equal((await publicRequest("guest/session", {})).status, 403);
+    assert.equal(
+      await db.prepare("SELECT count(*) AS n FROM guests").first("n"),
+      0,
+    );
+  });
+  it("verifies guests, uses host-only Secure cookies and reuses sessions without another challenge", async () => {
+    mockVerify();
+    const guest = await publicSession();
+    assert.match(guest.header, /__Host-ml_guest=/);
+    assert.match(guest.header, /Secure/);
+    assert.match(guest.header, /HttpOnly/);
+    assert.match(guest.header, /SameSite=Strict/i);
+    assert.doesNotMatch(guest.header, /Domain=/i);
+    assert.equal(guest.usage.mode, "public");
+    const reused = await publicRequest("guest/session", {}, guest.cookie);
+    assert.equal(reused.status, 200);
+    assert.equal(reused.headers.get("set-cookie"), null);
+    assert.deepEqual(await reused.json(), guest.usage);
+    const row = await db
+      .prepare("SELECT token_digest FROM turnstile_redemptions")
+      .first<{ token_digest: string }>();
+    assert.match(row!.token_digest, /^[a-f0-9]{64}$/);
+    assert.equal(
+      (
+        await publicRequest("guest/session", {}, guest.cookie, publicEnv(), {
+          Origin: "https://evil.example",
+        })
+      ).status,
+      403,
+    );
+  });
+  it("rejects failed, expired, wrong-action and wrong-hostname verification without granting allowance", async () => {
+    for (const overrides of [
+      { success: false },
+      { hostname: "localhost" },
+      { hostname: "dev.moment-lark.example" },
+      { action: "another_form" },
+      { challenge_ts: new Date(Date.now() - 600000).toISOString() },
+    ]) {
+      mockVerify(overrides);
+      assert.equal(
+        (
+          await publicRequest("guest/session", {
+            turnstileToken: crypto.randomUUID(),
+          })
+        ).status,
+        403,
+      );
+    }
+    assert.equal(
+      await db.prepare("SELECT count(*) AS n FROM guests").first("n"),
+      0,
+    );
+    assert.equal(
+      await db
+        .prepare("SELECT count(*) AS n FROM turnstile_redemptions")
+        .first("n"),
+      0,
+    );
+  });
+  it("rejects replay even when concurrent Siteverify responses both succeed", async () => {
+    mockVerify();
+    const token = crypto.randomUUID();
+    const responses = await Promise.all(
+      Array.from({ length: 2 }, () =>
+        publicRequest("guest/session", { turnstileToken: token }),
+      ),
+    );
+    assert.deepEqual(responses.map((r) => r.status).sort(), [201, 403]);
+    assert.equal(
+      await db.prepare("SELECT count(*) AS n FROM guests").first("n"),
+      1,
+    );
+    assert.equal(
+      await db
+        .prepare("SELECT count(*) AS n FROM turnstile_redemptions")
+        .first("n"),
+      1,
+    );
+    assert.equal(
+      (await publicRequest("guest/session", { turnstileToken: token })).status,
+      403,
+    );
+  });
+  it("bounds guest issuance across fresh cookies and preserves existing sessions at the cap", async () => {
+    mockVerify();
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        publicRequest("guest/session", { turnstileToken: crypto.randomUUID() }),
+      ),
+    );
+    assert.equal(responses.filter((r) => r.status === 201).length, 3);
+    assert.equal(responses.filter((r) => r.status === 429).length, 2);
+    const cookie = responses
+      .find((r) => r.status === 201)!
+      .headers.get("set-cookie")!
+      .split(";")[0];
+    assert.equal(
+      (await publicRequest("guest/session", {}, cookie)).status,
+      200,
+    );
+    assert.equal(
+      await db.prepare("SELECT count(*) AS n FROM guests").first("n"),
+      3,
+    );
+    assert.equal(
+      await db
+        .prepare("SELECT count(*) AS n FROM turnstile_redemptions")
+        .first("n"),
+      3,
+    );
+  });
+  it("rate-limits failed challenges without spending a guest video slot", async () => {
+    mockVerify({ success: false });
+    for (let i = 0; i < 10; i++)
+      assert.equal(
+        (
+          await publicRequest("guest/session", {
+            turnstileToken: crypto.randomUUID(),
+          })
+        ).status,
+        403,
+      );
+    const blocked = await publicRequest("guest/session", {
+      turnstileToken: crypto.randomUUID(),
+    });
+    assert.equal(blocked.status, 429);
+    assert.ok(blocked.headers.has("retry-after"));
+    assert.equal(
+      await db.prepare("SELECT count(*) AS n FROM guests").first("n"),
+      0,
+    );
+  });
+  it("fails closed on verification outage or absent trusted client IP", async () => {
+    globalThis.fetch = async (url, init) =>
+      String(url).includes("siteverify")
+        ? Response.json({}, { status: 503 })
+        : originalFetch(url, init);
+    const result = await publicRequest("guest/session", {
+      turnstileToken: "test-token",
+    });
+    assert.equal(result.status, 503);
+    assert.doesNotMatch(await result.text(), /private-test-secret|test-token/);
+    mockVerify();
+    assert.equal(
+      (
+        await publicRequest(
+          "guest/session",
+          { turnstileToken: "token" },
+          undefined,
+          publicEnv(),
+          { "CF-Connecting-IP": "" },
+        )
+      ).status,
+      503,
+    );
+    assert.equal(
+      await db.prepare("SELECT count(*) AS n FROM guests").first("n"),
+      0,
+    );
+  });
+  it("atomically reserves a network allowance across guests and refunds cancelled or expired jobs", async () => {
+    mockVerify();
+    const bindings = { ...publicEnv(), NETWORK_VIDEOS_PER_DAY: "2" };
+    const a = await publicSession(crypto.randomUUID(), bindings),
+      b = await publicSession(crypto.randomUUID(), bindings);
+    const jobs = Array.from({ length: 4 }, newJob);
+    const cookies = [a.cookie, b.cookie, a.cookie, b.cookie];
+    const responses = await Promise.all(
+      jobs.map((job, i) =>
+        publicRequest("analysis-jobs", job, cookies[i], bindings),
+      ),
+    );
+    assert.equal(responses.filter((r) => r.status === 200).length, 2);
+    assert.equal(responses.filter((r) => r.status === 409).length, 2);
+    const accepted = responses.flatMap((r, i) => (r.status === 200 ? [i] : []));
+    const one = accepted[0],
+      two = accepted[1];
+    for (let i = 0; i < 2; i++)
+      assert.equal(
+        (
+          await publicRequest(
+            "analysis-jobs/complete",
+            { id: jobs[one].id },
+            cookies[one],
+            bindings,
+          )
+        ).status,
+        200,
+      );
+    await publicRequest(
+      "analysis-jobs/cancel",
+      { id: jobs[two].id },
+      cookies[two],
+      bindings,
+    );
+    const fresh = newJob();
+    assert.equal(
+      (await publicRequest("analysis-jobs", fresh, a.cookie, bindings)).status,
+      200,
+    );
+    await db
+      .prepare("UPDATE analysis_jobs SET expires_at = 1 WHERE id = ?")
+      .bind(fresh.id)
+      .run();
+    assert.equal(
+      (await publicRequest("analysis-jobs", newJob(), b.cookie, bindings))
+        .status,
+      200,
+    );
+    const balance = await db
+      .prepare(
+        "SELECT used, reserved FROM network_windows WHERE id = (SELECT network_window FROM analysis_jobs WHERE id = ?)",
+      )
+      .bind(jobs[one].id)
+      .first();
+    assert.deepEqual(balance, { used: 1, reserved: 1 });
+  });
+  it("network identifiers are keyed and window-specific, not raw IPs", async () => {
+    const a = await networkWindow("secret-one", "192.0.2.1", 86401, "analysis");
+    assert.equal(a.expiresAt, 172800);
+    assert.match(a.id, /^[a-f0-9]{64}$/);
+    assert.notEqual(
+      a.id,
+      (await networkWindow("secret-one", "192.0.2.1", 172801, "analysis")).id,
+    );
+    assert.notEqual(
+      a.id,
+      (await networkWindow("secret-two", "192.0.2.1", 86401, "analysis")).id,
+    );
+  });
+
+  it("cleans expired protection records and leases without deleting guests or completed history", async () => {
+    mockVerify();
+    const guest = await publicSession();
+    const job = newJob();
+    await publicRequest("analysis-jobs", job, guest.cookie);
+    await db
+      .prepare("UPDATE analysis_jobs SET expires_at = 1 WHERE id = ?")
+      .bind(job.id)
+      .run();
+    await db.prepare("UPDATE turnstile_redemptions SET expires_at = 1").run();
+    await db.prepare("UPDATE network_windows SET expires_at = 1").run();
+    await maintainGuestRecords(db, Math.floor(Date.now() / 1000));
+    assert.equal(
+      await db.prepare("SELECT count(*) AS n FROM guests").first("n"),
+      1,
+    );
+    assert.equal(
+      await db
+        .prepare("SELECT status FROM analysis_jobs WHERE id = ?")
+        .bind(job.id)
+        .first("status"),
+      "expired",
+    );
+    assert.equal(
+      await db
+        .prepare("SELECT count(*) AS n FROM turnstile_redemptions")
+        .first("n"),
+      0,
+    );
+    assert.equal(
+      await db.prepare("SELECT count(*) AS n FROM network_windows").first("n"),
+      1,
+    );
+    const usage = guestUsageSchema.parse(
+      await (
+        await publicRequest("guest/usage", undefined, guest.cookie)
+      ).json(),
+    );
+    assert.equal(usage.allowance.remainingVideos, 3);
   });
 });

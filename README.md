@@ -8,7 +8,7 @@ The media foundation uses **Remotion Player**, **@remotion/media**, and **@remot
 
 Local file import reads metadata and starts with an empty clip list. Playback, frame-grid trim controls, original source framing by default, optional 9:16 / 1:1 crops, manual horizontal crop positioning, title overlays, timed captions, undo/redo, keep/dismiss, and a kept-clip queue are implemented. The Clips route supports format filters, sorting, per-clip export selection, preview, duplication, removal with undo, and creating manual clips. Export snapshots clip settings, processes selected clips sequentially, and retains progress and completed files across route navigation. Failed/canceled jobs can be retried; completed MP4s can be previewed, downloaded individually, or bundled into a ZIP with fflate. Editing a clip invalidates its previous render in the export UI.
 
-Automatic transcription, AI highlight ranking, active-speaker tracking, and persistent project storage remain future work. The simulated analysis timer, example suggestions, stock media, and fabricated telemetry have been removed from production. The Analysis view retains the designed four stages, progress area, and framing telemetry. It previews the imported video in its original framing. Measurements remain empty until the engine supplies them; there is no simulated timer or Proceed button. Actual completion automatically routes to Suggestions. Integration must dispatch `analysis-complete` with the current source ID and actual clip results. Stale-source results are ignored. Reloading resets the session; a URL cannot restore a local File. Test fixtures live under `tests/fixtures/` only.
+Local transcription, optional sound-event detection and AI highlight ranking are implemented with pinned browser models. The import preflight explains model downloads and short-video limits, and successful analysis automatically opens Suggestions. Active-speaker tracking and persistent project storage remain future work. See [the analysis guide](docs/mvp-plan.md) for measured limits and the prompt registry.
 
 ## Run locally
 
@@ -39,7 +39,7 @@ Migration `0003` converts the unused local minute ledger into a three-video ledg
 
 The session cookie lasts seven days and is host-only, HttpOnly, and SameSite=Strict. The token is generated randomly; only its SHA-256 digest is stored in D1. HTTPS responses set Secure; the explicit local HTTP setup cannot use a Secure cookie. Deployed guest issuance is disabled until the production cookie policy, separate D1 bindings, issuance/network limits, and Turnstile checks are implemented. The public deployment can serve the API health endpoint but returns `503 guest_unavailable` for guest endpoints. No production database or cloud resource has been provisioned.
 
-The local database persists under ignored `.wrangler/state/`; ordinary page reloads and API restarts keep the guest balance. Tests use a separate ephemeral D1 instance. Clearing cookies or using another browser creates a different local test guest. IP limits, reservations, spending/refunds, production sessions, and local AI are **not** implemented by this slice. No media or transcript is sent by these endpoints, and importing still enters Analysis without unlocking later steps.
+The local database persists under ignored `.wrangler/state/`; ordinary page reloads and API restarts keep the guest balance. Tests use a separate ephemeral D1 instance. Clearing cookies or using another browser creates a different local test guest. Reservations, spending/refunds, Turnstile-protected public sessions and network counters are implemented. Production and deployed dev require their own D1 bindings, migrated schema and secrets. No media or transcript is sent by these endpoints. Import pauses at the analysis preflight; validated analysis results unlock Suggestions.
 
 Run `npm run test:api` for database/API tests, or `npm test` for the full suite. The local runtime needs permission to open loopback ports. See [the backend learning guide](docs/backend-plan.md#first-working-slice-local-guest-sessions) for the request path and where to read the code.
 
@@ -53,11 +53,11 @@ Set the Git-connected Worker build settings to:
 - Root directory: repository root
 - Build command: `pnpm run build`
 - Production deploy command: `npx wrangler deploy --config wrangler.jsonc`
-- Preview deploy command: `npx wrangler preview --config wrangler.jsonc`
+- Separate deployed dev Worker command: `npx wrangler deploy --config wrangler.jsonc --env dev`
 
-After building, `npm run check:deploy` bundles the Worker and validates assets without publishing. Production/preview guest endpoints remain disabled until their separate database bindings and abuse controls are configured. Never attach a production database to branch previews.
+After building, `npm run check:deploy` bundles the Worker and validates assets without publishing. Public guest endpoints require the configured secrets and remote migrations. The production and stable dev URLs have separate database bindings. Never attach a production database to branch previews. Follow the [deployment and SQL walkthrough](docs/deployment.md) before running remote commands.
 
-The empty `previews` block in `wrangler.jsonc` enables branch previews. Static assets and compatibility settings stay at the top level and apply to previews as well. Use `deploy` for production and `preview` for branch previews; see [Cloudflare preview configuration](https://developers.cloudflare.com/workers/previews/configuration/).
+The empty `previews` block remains available for asset previews. Public guest APIs intentionally accept only each deployment’s exact configured origin, so generated preview URLs are not guest-testing environments. Use the stable dev Worker with `--env dev`.
 
 The Wrangler configuration must be included in the branch being deployed. It explicitly selects `out/`, serves exported HTML routes such as `/editor` from `editor.html`, and uses the exported `404.html` for unknown paths. Keep `output: "export"` in `next.config.ts`.
 

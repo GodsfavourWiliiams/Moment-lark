@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-export const guestSessionRequestSchema = z.object({}).strict();
+export const guestSessionRequestSchema = z
+  .object({ turnstileToken: z.string().min(1).max(2048).optional() })
+  .strict();
 
 export const guestUsageSchema = z.object({
   guest: z.object({
@@ -13,7 +15,7 @@ export const guestUsageSchema = z.object({
     reservedVideos: z.number().int().nonnegative(),
     remainingVideos: z.number().int().nonnegative(),
   }),
-  mode: z.literal("local-development"),
+  mode: z.enum(["local-development", "public"]),
 });
 
 export const guestErrorSchema = z.object({
@@ -21,3 +23,8 @@ export const guestErrorSchema = z.object({
 });
 
 export type GuestUsage = z.infer<typeof guestUsageSchema>;
+
+export const guestChallengeSchema = z.object({
+  siteKey: z.string().min(1).max(100),
+  action: z.literal("guest_session"),
+});

@@ -22,14 +22,16 @@ export async function reserveJob(
     provenance?: AnalysisProvenance;
   },
   now: number,
+  networkWindow?: string,
 ) {
   await expireJobs(db, guestId, now);
   // One atomic INSERT + trigger: competing tabs cannot both spend the last slot.
   await db
     .prepare(
-      `INSERT INTO analysis_jobs (id, guest_id, source_id, file_bytes, created_at, expires_at, provenance)
-    SELECT ?, id, ?, ?, ?, ?, ? FROM guests
+      `INSERT INTO analysis_jobs (id, guest_id, source_id, file_bytes, created_at, expires_at, provenance, network_window)
+    SELECT ?, id, ?, ?, ?, ?, ?, ? FROM guests
     WHERE id = ? AND used_videos + reserved_videos < granted_videos
+    AND (? IS NULL OR EXISTS (SELECT 1 FROM network_windows WHERE id = ? AND used + reserved < cap))
     ON CONFLICT DO NOTHING`,
     )
     .bind(
@@ -39,7 +41,10 @@ export async function reserveJob(
       now,
       now + LEASE_SECONDS,
       input.provenance ? JSON.stringify(input.provenance) : null,
+      networkWindow ?? null,
       guestId,
+      networkWindow ?? null,
+      networkWindow ?? null,
     )
     .run();
   return db

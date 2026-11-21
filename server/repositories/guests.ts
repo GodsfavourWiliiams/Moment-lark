@@ -31,10 +31,24 @@ export async function insertGuestSession(
     now: number;
     expiresAt: number;
     allowanceVideos: number;
+    publicContext?: { tokenDigest: string; networkWindow: string };
   },
 ) {
   // D1 batches are transactional: a failed session insert must not leave a guest behind.
   await db.batch([
+    ...(input.publicContext
+      ? [
+          db
+            .prepare(
+              "INSERT INTO turnstile_redemptions(token_digest, expires_at) VALUES (?, ?)",
+            )
+            .bind(input.publicContext.tokenDigest, input.now + 600),
+          // CHECK cap makes concurrent issuance transactional, including token redemption.
+          db
+            .prepare("UPDATE network_windows SET used = used + 1 WHERE id = ?")
+            .bind(input.publicContext.networkWindow),
+        ]
+      : []),
     db
       .prepare(
         `INSERT INTO guests (id, created_at, granted_videos) VALUES (?, ?, ?)`,

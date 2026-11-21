@@ -5,6 +5,12 @@ export function guestReducer(
   action: GuestAction,
 ): GuestState {
   switch (action.type) {
+    case "challenge":
+      return {
+        status: "challenge",
+        siteKey: action.siteKey,
+        action: action.action,
+      };
     case "loading":
       return { status: "loading" };
     case "loaded":

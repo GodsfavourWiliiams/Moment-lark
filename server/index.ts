@@ -1,6 +1,8 @@
 import { analysisJobRoutes } from "./routes/analysis-jobs";
 import { Hono } from "hono";
 import { guestRoutes } from "./routes/guest";
+import { maintainGuestRecords } from "./services/maintenance";
+import type { Bindings } from "./types";
 import type { ApiEnvironment } from "./types";
 
 const app = new Hono<ApiEnvironment>();
@@ -41,4 +43,9 @@ app.onError((_error, c) => {
   );
 });
 
-export default app;
+export default Object.assign(app, {
+  async scheduled(_event: ScheduledController, env: Bindings) {
+    if (env.GUEST_MODE === "public" && env.DB)
+      await maintainGuestRecords(env.DB, Math.floor(Date.now() / 1000));
+  },
+});

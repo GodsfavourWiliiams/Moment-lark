@@ -1,4 +1,5 @@
 "use client";
+import { GuestAllowance } from "@/features/guest";
 import { useState } from "react";
 import {
   DEFAULT_ANALYSIS_OPTIONS,
@@ -14,6 +15,7 @@ export function AnalysisSetup({
   source: MediaSource;
   onStart: (options: AnalysisOptions) => void;
 }) {
+  const [guestReady, setGuestReady] = useState(false);
   const [soundEvents, setSoundEvents] = useState(
     DEFAULT_ANALYSIS_OPTIONS.soundEvents,
   );
@@ -56,9 +58,10 @@ export function AnalysisSetup({
           </span>
         </span>
       </label>
+      <GuestAllowance onReady={setGuestReady} />
       <button
         type="button"
-        disabled={guidance.blocked}
+        disabled={guidance.blocked || !guestReady}
         onClick={() => onStart({ soundEvents })}
         className="self-start rounded-lg bg-primary-container px-5 py-2.5 text-label-md font-bold text-on-primary-fixed disabled:cursor-not-allowed disabled:opacity-40"
       >

@@ -1,10 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
 import { Button } from "@/components/ui";
+import { GuestVerification } from "./turnstile";
 import { useGuest } from "@/hooks/use-guest";
 
-export function GuestAllowance() {
-  const { state, retry } = useGuest();
+export function GuestAllowance({
+  onReady,
+}: { onReady?: (ready: boolean) => void } = {}) {
+  const { state, retry, verify } = useGuest();
+  const ready =
+    state.status === "ready" && state.usage.allowance.remainingVideos > 0;
+  useEffect(() => {
+    onReady?.(ready);
+  }, [ready, onReady]);
 
   return (
     <section
@@ -35,9 +44,18 @@ export function GuestAllowance() {
           </>
         )}
       </div>
+      {state.status === "challenge" && (
+        <GuestVerification
+          siteKey={state.siteKey}
+          action={state.action}
+          onVerified={verify}
+        />
+      )}
       {state.status === "ready" && (
         <span className="rounded bg-surface-container-high px-2 py-1 text-label-sm">
-          Local test allowance
+          {state.usage.mode === "local-development"
+            ? "Local test allowance"
+            : "Guest allowance"}
         </span>
       )}
       {state.status === "error" && (

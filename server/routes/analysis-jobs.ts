@@ -6,15 +6,20 @@ import {
   analysisOperationSchema,
   completeAnalysisSchema,
 } from "../../shared/contracts/analysis-job";
-import { getLocalGuestPolicy, LOCAL_SESSION_COOKIE } from "../config/guest";
+import { getGuestPolicy } from "../config/guest";
 import { readGuestUsage } from "../services/guest-session";
 import { changeJob, reserveJob } from "../repositories/analysis-jobs";
+import {
+  ensureWindow,
+  networkWindow,
+  takeAttempt,
+} from "../services/public-guest";
 import type { ApiEnvironment } from "../types";
 
 export const analysisJobRoutes = new Hono<ApiEnvironment>();
 analysisJobRoutes.use("*", bodyLimit({ maxSize: 1024 }));
 analysisJobRoutes.post("/:action?", async (c) => {
-  const policy = getLocalGuestPolicy(c.env, c.req.url);
+  const policy = getGuestPolicy(c.env, c.req.url);
   if (!policy)
     return c.json(
       {
@@ -46,8 +51,9 @@ analysisJobRoutes.post("/:action?", async (c) => {
   const now = Math.floor(Date.now() / 1000);
   const usage = await readGuestUsage(
     policy.db,
-    getCookie(c, LOCAL_SESSION_COOKIE),
+    getCookie(c, policy.cookie),
     now,
+    policy.mode,
   );
   if (!usage)
     return c.json(
@@ -74,14 +80,57 @@ analysisJobRoutes.post("/:action?", async (c) => {
         },
         400,
       );
-    const job = await reserveJob(policy.db, usage.guest.id, parsed.data, now);
+    let windowId: string | undefined;
+    if (policy.mode === "public") {
+      const ip = c.req.header("CF-Connecting-IP") ?? "";
+      const attempts = await networkWindow(
+        policy.networkSecret,
+        ip,
+        now,
+        "analysis-attempt",
+        600,
+      );
+      if (!(await takeAttempt(policy.db, attempts, 30)))
+        return c.json(
+          {
+            error: {
+              code: "rate_limited",
+              message:
+                "Too many analysis requests from this network. Try again later.",
+            },
+          },
+          429,
+        );
+      const window = await networkWindow(
+        policy.networkSecret,
+        ip,
+        now,
+        "analysis",
+      );
+      await ensureWindow(policy.db, window, policy.limits.videos);
+      // Free expired leases across this network, including other guests/tabs.
+      await policy.db
+        .prepare(
+          "UPDATE analysis_jobs SET status = 'expired' WHERE network_window = ? AND status = 'reserved' AND expires_at <= ?",
+        )
+        .bind(window.id, now)
+        .run();
+      windowId = window.id;
+    }
+    const job = await reserveJob(
+      policy.db,
+      usage.guest.id,
+      parsed.data,
+      now,
+      windowId,
+    );
     if (!job)
       return c.json(
         {
           error: {
             code: "allowance_exhausted",
             message:
-              "Your three video slots are used or reserved by another analysis.",
+              "Your guest or network allowance is used or reserved by another analysis.",
           },
         },
         409,

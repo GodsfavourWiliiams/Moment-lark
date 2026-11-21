@@ -80,3 +80,42 @@ it("reports blocked cookies instead of looping through guest creation", async ()
   );
   assert.equal(calls, 3);
 });
+
+it("stops for a public challenge and submits a token only after verification", async () => {
+  const calls: { url: string; body?: string }[] = [];
+  let created = false;
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url: String(url), body: options?.body as string | undefined });
+    if (String(url).endsWith("/session")) {
+      if (!JSON.parse(String(options?.body)).turnstileToken)
+        return Response.json(
+          { error: { code: "challenge_required", message: "Verify first" } },
+          { status: 403 },
+        );
+      assert.equal(
+        JSON.parse(String(options?.body)).turnstileToken,
+        "fresh-token",
+      );
+      created = true;
+      return Response.json({ ...usage, mode: "public" });
+    }
+    return created
+      ? Response.json({ ...usage, mode: "public" })
+      : Response.json(
+          { error: { code: "session_required", message: "Session required" } },
+          { status: 401 },
+        );
+  };
+  await assert.rejects(
+    loadGuestUsage(),
+    (error) =>
+      error instanceof GuestApiError && error.code === "challenge_required",
+  );
+  assert.equal(calls.length, 2);
+  assert.equal((await loadGuestUsage("fresh-token")).mode, "public");
+  assert.equal(calls.length, 5);
+  assert.equal(
+    calls.filter((call) => call.body?.includes("fresh-token")).length,
+    1,
+  );
+});
