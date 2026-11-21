@@ -23,6 +23,7 @@ export function WelcomePage() {
         snapshot={studio.analysis}
         awaitingAnalysis={studio.awaitingAnalysis}
         onStart={studio.startAnalysis}
+        onApproveDownload={studio.approveModelDownload}
         error={studio.error}
         complete={editing.reached.suggestions}
         onCancel={studio.returnToImport}

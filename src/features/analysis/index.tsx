@@ -1,3 +1,6 @@
+"use client";
+import { useCallback, useState } from "react";
+import type { ModelPreparation } from "@/lib/analysis/protocol";
 import type { SelectedVideo } from "@/types/studio";
 import type { MediaSource } from "@/types/editing";
 import type { AnalysisSnapshot } from "@/types/analysis";
@@ -9,6 +12,8 @@ import { FramingTelemetry } from "./components/framing-telemetry";
 import { ANALYSIS_STAGES } from "./data/stages";
 import { AnalysisSetup } from "./components/analysis-setup";
 import type { AnalysisOptions } from "@/lib/analysis/options";
+import { sourceGuidance } from "@/lib/analysis/options";
+import { MODEL_NAMES } from "@/lib/analysis/model-storage";
 
 /** The design stays in place; only engine results can populate its measurements. */
 export function AnalysisView({
@@ -21,6 +26,7 @@ export function AnalysisView({
   onCancel,
   awaitingAnalysis = false,
   onStart,
+  onApproveDownload,
 }: {
   video: SelectedVideo;
   source: MediaSource | null;
@@ -31,7 +37,18 @@ export function AnalysisView({
   onCancel: () => void;
   awaitingAnalysis?: boolean;
   onStart?: (options: AnalysisOptions) => void;
+  onApproveDownload?: (id: string) => void;
 }) {
+  const sourceId = source?.id;
+  const [prepared, setPrepared] = useState<{
+    sourceId?: string;
+    result: ModelPreparation | null;
+  }>();
+  const onPrepared = useCallback(
+    (result: ModelPreparation | null) => setPrepared({ sourceId, result }),
+    [sourceId],
+  );
+  const preparation = prepared?.sourceId === sourceId ? prepared?.result : null;
   const title = error
     ? "Analysis needs your attention"
     : reading
@@ -78,12 +95,43 @@ export function AnalysisView({
               {error}
             </p>
           )}
+          {snapshot.downloadRequest && !error && (
+            <div
+              role="status"
+              className="flex flex-col gap-3 rounded-lg bg-surface-container-low p-4"
+            >
+              <p className="text-body-sm text-on-surface">
+                This step needs {MODEL_NAMES[snapshot.downloadRequest.model]}.
+                Download missing files to continue?
+              </p>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onApproveDownload?.(snapshot.downloadRequest!.id)
+                  }
+                  className="rounded-lg bg-primary-container px-4 py-2 font-bold text-on-primary-fixed"
+                >
+                  Download &amp; continue
+                </button>
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="text-on-surface-variant"
+                >
+                  Cancel analysis
+                </button>
+              </div>
+            </div>
+          )}
           {awaitingAnalysis && source && onStart && (
             <AnalysisSetup
               key={source.id}
               source={source}
               onStart={onStart}
               onCancel={onCancel}
+              onPrepared={onPrepared}
+              autoStart={!error}
             />
           )}
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
@@ -94,6 +142,14 @@ export function AnalysisView({
                 complete={complete}
                 results={snapshot.stageResults}
                 faceSummary={snapshot.faceSummary}
+                preparingSpeech={
+                  awaitingAnalysis &&
+                  Boolean(source) &&
+                  !sourceGuidance(source!.durationInFrames / source!.fps)
+                    .blocked &&
+                  !preparation
+                }
+                speechReady={awaitingAnalysis && preparation?.speechReady}
               />
             </div>
             <div className="min-w-0 lg:col-span-5">

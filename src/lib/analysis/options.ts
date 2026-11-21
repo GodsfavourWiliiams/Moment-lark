@@ -1,4 +1,7 @@
-export type AnalysisOptions = { soundEvents: true };
+export type AnalysisOptions = {
+  soundEvents: true;
+  allowModelDownloads?: boolean;
+};
 export const DEFAULT_ANALYSIS_OPTIONS: AnalysisOptions = { soundEvents: true };
 export const MIN_ANALYSIS_SECONDS = 6;
 

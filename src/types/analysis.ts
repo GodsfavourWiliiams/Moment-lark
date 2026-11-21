@@ -1,5 +1,9 @@
 /** Optional fields are populated by engine events, never by a simulated timer. */
 export type AnalysisSnapshot = {
+  downloadRequest?: {
+    id: string;
+    model: "speech" | "sound" | "ranking";
+  } | null;
   detail?: string;
   timing?: string;
   soundScanSkipped?: boolean;

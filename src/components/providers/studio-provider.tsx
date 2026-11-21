@@ -39,6 +39,15 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   } | null>(null);
   const running = useRef(false);
   const analysisController = useRef<AbortController | null>(null);
+  const downloadApproval = useRef<{ id: string; approve: () => void } | null>(
+    null,
+  );
+  const approveModelDownload = useCallback((id: string) => {
+    if (downloadApproval.current?.id !== id) return;
+    const { approve } = downloadApproval.current;
+    downloadApproval.current = null;
+    approve();
+  }, []);
   useEffect(() => () => analysisController.current?.abort(), []);
   const previousView = useRef(state.view);
   const openPicker = useCallback(() => inputRef.current?.click(), []);
@@ -55,6 +64,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     pendingSource.current = null;
     running.current = false;
     analysisController.current?.abort();
+    downloadApproval.current = null;
     if (reached.suggestions) cancelLoad();
     else resetSession();
     dispatch({ type: "return-to-import" });
@@ -139,6 +149,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       )
         return;
       running.current = true;
+      downloadApproval.current = null;
       const controller = new AbortController();
       analysisController.current = controller;
       dispatch({ type: "run-analysis" });
@@ -152,6 +163,13 @@ export function StudioProvider({ children }: { children: ReactNode }) {
               dispatch({ type: "analysis-progress", snapshot });
           },
           options,
+          (download, approve) => {
+            if (
+              pending.requestId === request.current &&
+              !controller.signal.aborted
+            )
+              downloadApproval.current = { id: download.id, approve };
+          },
         );
         if (pending.requestId !== request.current || controller.signal.aborted)
           return;
@@ -181,7 +199,10 @@ export function StudioProvider({ children }: { children: ReactNode }) {
             dispatch({ type: "video-ready" });
         }
       } finally {
-        if (pending.requestId === request.current) running.current = false;
+        if (pending.requestId === request.current) {
+          running.current = false;
+          downloadApproval.current = null;
+        }
       }
     },
     [editingDispatch],
@@ -223,6 +244,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         openSection,
         selectFiles,
         startAnalysis,
+        approveModelDownload,
       }}
     >
       {children}

@@ -23,14 +23,58 @@ import {
   RANK_LIBRARY_URL,
 } from "../lib/analysis/models";
 import type { AnalysisRequest, AnalysisEvent } from "../lib/analysis/protocol";
+import type { ModelDownloadApproval } from "../lib/analysis/protocol";
+import { ModelDownloadGate } from "../lib/analysis/model-download-gate";
 import { stageThroughput, sourceGuidance } from "../lib/analysis/options";
 import { createModelAssetCache } from "../lib/analysis/model-assets";
+import { inspectModels } from "../lib/analysis/model-storage";
 import type { AnalysisSnapshot } from "../types/analysis";
 
 function send(event: AnalysisEvent) {
   self.postMessage(event);
 }
 let snapshot: AnalysisSnapshot = {};
+type ModelProgress = { status: string; file?: string; progress?: number };
+async function createSpeech(
+  cachedOnly: boolean,
+  progress_callback?: (event: ModelProgress) => void,
+) {
+  const { pipeline, env } = await import("@huggingface/transformers");
+  env.allowLocalModels = cachedOnly;
+  env.allowRemoteModels = !cachedOnly;
+  env.customCache = await createModelAssetCache(self.location.origin);
+  env.useCustomCache = true;
+  if (env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1;
+  return pipeline("automatic-speech-recognition", SPEECH_MODEL.id, {
+    revision: SPEECH_MODEL.revision,
+    device: "webgpu",
+    dtype: { encoder_model: "fp32", decoder_model_merged: "q4" },
+    local_files_only: cachedOnly,
+    progress_callback,
+  });
+}
+let preparedSpeech: Awaited<ReturnType<typeof createSpeech>> | undefined;
+async function prepare() {
+  const models = await inspectModels();
+  let error: string | undefined;
+  if (models.speech === "ready") {
+    try {
+      // Real initialization, restricted to saved weights. No transcription or guest slot.
+      preparedSpeech = await createSpeech(true);
+    } catch (cause) {
+      error =
+        cause instanceof Error
+          ? cause.message
+          : "Could not load the saved speech model.";
+    }
+  }
+  send({
+    type: "prepared",
+    preparation: { models, speechReady: Boolean(preparedSpeech), error },
+  });
+}
+let preparation: Promise<void> = Promise.resolve();
+const downloadGate = new ModelDownloadGate();
 function report(update: AnalysisSnapshot) {
   snapshot = {
     ...snapshot,
@@ -40,7 +84,21 @@ function report(update: AnalysisSnapshot) {
   send({ type: "progress", snapshot });
 }
 
-async function analyze({ file, source }: AnalysisRequest) {
+async function analyze({ file, source, options }: AnalysisRequest) {
+  const requireModel = async (model: "speech" | "sound" | "ranking") => {
+    if (
+      options.allowModelDownloads ||
+      (await inspectModels())[model] === "ready"
+    )
+      return;
+    await downloadGate.wait(model, (downloadRequest) =>
+      report({
+        downloadRequest,
+        detail: "Waiting for model download approval…",
+      }),
+    );
+    report({ downloadRequest: null, detail: "Loading model…" });
+  };
   const duration = source.durationInFrames / source.fps;
   const guidance = sourceGuidance(duration);
   if (guidance.blocked) throw new Error(guidance.message);
@@ -101,6 +159,7 @@ async function analyze({ file, source }: AnalysisRequest) {
       );
     const { pipeline, env } = await import("@huggingface/transformers");
     env.allowLocalModels = false;
+    env.allowRemoteModels = true;
     env.customCache = await createModelAssetCache(self.location.origin);
     env.useCustomCache = true;
     if (env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1;
@@ -116,14 +175,14 @@ async function analyze({ file, source }: AnalysisRequest) {
         });
     };
     const evidence: Evidence[] = [];
-    const speech = await measure("speechLoad", () =>
-      pipeline("automatic-speech-recognition", SPEECH_MODEL.id, {
-        revision: SPEECH_MODEL.revision,
-        device: "webgpu",
-        dtype: { encoder_model: "fp32", decoder_model_merged: "q4" },
-        progress_callback,
-      }),
-    );
+    if (!preparedSpeech) await requireModel("speech");
+    const speech =
+      preparedSpeech ??
+      (await measure("speechLoad", () =>
+        createSpeech(false, progress_callback),
+      ));
+    if (preparedSpeech) timings.speechLoad = 0;
+    preparedSpeech = undefined;
     const transcriptionStart = performance.now();
     try {
       report({
@@ -194,6 +253,7 @@ async function analyze({ file, source }: AnalysisRequest) {
         timing: "Loading sound model…",
       });
       // Run models sequentially to avoid retaining speech + sound + LLM allocations together.
+      await requireModel("sound");
       const classifier = await measure("soundLoad", () =>
         pipeline("audio-classification", SOUND_MODEL.id, {
           revision: SOUND_MODEL.revision,
@@ -258,6 +318,7 @@ async function analyze({ file, source }: AnalysisRequest) {
     const { CreateMLCEngine, prebuiltAppConfig } = await import(
       "@mlc-ai/web-llm"
     );
+    await requireModel("ranking");
     const record = prebuiltAppConfig.model_list.find(
       (m) => m.model_id === RANK_MODEL,
     );
@@ -394,14 +455,38 @@ async function analyze({ file, source }: AnalysisRequest) {
     input.dispose();
   }
 }
-self.onmessage = (event: MessageEvent<AnalysisRequest>) => {
-  void analyze(event.data).catch((error: unknown) =>
-    send({
-      type: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Local analysis failed. Please retry.",
-    }),
-  );
+self.onmessage = (
+  event: MessageEvent<
+    AnalysisRequest | { type: "prepare" } | ModelDownloadApproval
+  >,
+) => {
+  const request = event.data;
+  if ("type" in request) {
+    if (request.type === "approve-download") {
+      downloadGate.approve(request.id);
+      return;
+    }
+    preparation = prepare().catch(() => {
+      send({
+        type: "prepared",
+        preparation: {
+          models: { speech: "unknown", sound: "unknown", ranking: "unknown" },
+          speechReady: false,
+          error: "Model preparation could not finish. Start analysis to retry.",
+        },
+      });
+    });
+    return;
+  }
+  void preparation
+    .then(() => analyze(request))
+    .catch((error: unknown) =>
+      send({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Local analysis failed. Please retry.",
+      }),
+    );
 };
