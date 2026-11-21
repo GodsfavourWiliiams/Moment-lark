@@ -27,7 +27,7 @@ const props = {
 test("analysis retains stage and telemetry content, previews the imported source, and has no manual continue action", () => {
   const html = renderToStaticMarkup(createElement(AnalysisView, props));
   for (const title of [
-    "Downloading on-device AI models",
+    "Loading on-device AI models",
     "Transcribing &amp; analyzing speech",
     "Detecting sound events",
     "Preparing ranked clip suggestions",

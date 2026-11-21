@@ -35,9 +35,7 @@ export async function runAnalysis(
     schemaVersion: SCHEMA_VERSION as "highlights-result@1",
     repairVersion: compiled["json-repair"].version,
     speechModel: `${SPEECH_MODEL.id}@${SPEECH_MODEL.revision}`,
-    soundModel: options.soundEvents
-      ? `${SOUND_MODEL.id}@${SOUND_MODEL.revision}`
-      : null,
+    soundModel: `${SOUND_MODEL.id}@${SOUND_MODEL.revision}`,
     rankingModel: `${RANK_MODEL}@${RANK_REVISION}`,
   };
   let timings: Record<string, number> = {};

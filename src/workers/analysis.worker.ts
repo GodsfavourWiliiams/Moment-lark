@@ -19,10 +19,12 @@ import {
   SPEECH_MODEL,
   SOUND_MODEL,
   RANK_MODEL,
-  RANK_REVISION,
+  RANK_MODEL_URL,
+  RANK_LIBRARY_URL,
 } from "../lib/analysis/models";
 import type { AnalysisRequest, AnalysisEvent } from "../lib/analysis/protocol";
 import { stageThroughput, sourceGuidance } from "../lib/analysis/options";
+import { createModelAssetCache } from "../lib/analysis/model-assets";
 import type { AnalysisSnapshot } from "../types/analysis";
 
 function send(event: AnalysisEvent) {
@@ -38,7 +40,7 @@ function report(update: AnalysisSnapshot) {
   send({ type: "progress", snapshot });
 }
 
-async function analyze({ file, source, options }: AnalysisRequest) {
+async function analyze({ file, source }: AnalysisRequest) {
   const duration = source.durationInFrames / source.fps;
   const guidance = sourceGuidance(duration);
   if (guidance.blocked) throw new Error(guidance.message);
@@ -51,6 +53,17 @@ async function analyze({ file, source, options }: AnalysisRequest) {
     const begin = performance.now();
     try {
       return await task();
+    } catch (error) {
+      if (
+        ["speechLoad", "soundLoad", "rankerLoad"].includes(name) &&
+        error instanceof Error &&
+        /failed to fetch|networkerror|load failed/i.test(error.message)
+      ) {
+        throw new Error(
+          "The browser could not download an AI model file. Check your connection and whether this browser or network blocks Hugging Face, then retry. Already saved model files will be reused when available.",
+        );
+      }
+      throw error;
     } finally {
       timings[name] = Math.round(performance.now() - begin);
     }
@@ -88,6 +101,8 @@ async function analyze({ file, source, options }: AnalysisRequest) {
       );
     const { pipeline, env } = await import("@huggingface/transformers");
     env.allowLocalModels = false;
+    env.customCache = await createModelAssetCache(self.location.origin);
+    env.useCustomCache = true;
     if (env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1;
     // Package default remote WASM paths match its pinned ONNX Runtime version.
     const progress_callback = (event: {
@@ -169,7 +184,7 @@ async function analyze({ file, source, options }: AnalysisRequest) {
       0,
     );
     let eventCount = 0;
-    if (options.soundEvents) {
+    {
       report({
         stage: 3,
         progress: 55,
@@ -226,17 +241,6 @@ async function analyze({ file, source, options }: AnalysisRequest) {
         timings.soundScan = Math.round(performance.now() - soundStart);
         await classifier.dispose();
       }
-    } else {
-      report({
-        stage: 3,
-        progress: 75,
-        speechWpm: Math.round(words / (duration / 60)),
-        soundScanSkipped: true,
-        stageResults: {
-          2: `${evidence.length} speech segments`,
-          3: "Skipped · speech only",
-        },
-      });
     }
     report({
       stage: 4,
@@ -244,9 +248,7 @@ async function analyze({ file, source, options }: AnalysisRequest) {
       detail: "Loading local clip-selection model…",
       timing: "Model loading is separate from transcription time",
       stageResults: {
-        3: options.soundEvents
-          ? `${eventCount} sound events`
-          : "Skipped · speech only",
+        3: `${eventCount} sound events`,
       },
     });
     if (!evidence.length) {
@@ -268,7 +270,8 @@ async function analyze({ file, source, options }: AnalysisRequest) {
           model_list: [
             {
               ...record,
-              model: `https://huggingface.co/mlc-ai/${RANK_MODEL}/resolve/${RANK_REVISION}/`,
+              model: RANK_MODEL_URL,
+              model_lib: RANK_LIBRARY_URL,
             },
           ],
         },

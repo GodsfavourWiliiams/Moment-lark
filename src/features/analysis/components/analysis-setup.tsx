@@ -1,72 +1,124 @@
 "use client";
 import { GuestAllowance } from "@/features/guest";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   DEFAULT_ANALYSIS_OPTIONS,
   sourceGuidance,
   type AnalysisOptions,
 } from "@/lib/analysis/options";
+import {
+  inspectModels,
+  MODEL_NAMES,
+  type ModelAvailability,
+} from "@/lib/analysis/model-storage";
 import type { MediaSource } from "@/types/editing";
+import { ModelTransfer } from "./model-transfer";
 
 export function AnalysisSetup({
   source,
   onStart,
+  onCancel,
 }: {
   source: MediaSource;
   onStart: (options: AnalysisOptions) => void;
+  onCancel: () => void;
 }) {
   const [guestReady, setGuestReady] = useState(false);
-  const [soundEvents, setSoundEvents] = useState(
-    DEFAULT_ANALYSIS_OPTIONS.soundEvents,
-  );
+  const [models, setModels] = useState<ModelAvailability | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const refresh = useCallback(() => {
+    void inspectModels().then(setModels);
+  }, []);
+  useEffect(() => {
+    let mounted = true;
+    void inspectModels().then((value) => {
+      if (mounted) setModels(value);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const guidance = sourceGuidance(source.durationInFrames / source.fps);
+  const needed = models
+    ? (Object.keys(MODEL_NAMES) as (keyof ModelAvailability)[]).filter(
+        (key) => models[key] !== "ready",
+      )
+    : [];
+  const start = async () => {
+    if (busy || checking || !models) return;
+    setChecking(true);
+    // Recheck immediately before starting: cached files can be removed by the browser.
+    const latest = await inspectModels();
+    const newlyMissing = (
+      Object.keys(latest) as (keyof ModelAvailability)[]
+    ).some((key) => models[key] === "ready" && latest[key] !== "ready");
+    setModels(latest);
+    setChecking(false);
+    if (!newlyMissing) onStart(DEFAULT_ANALYSIS_OPTIONS);
+  };
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-surface-container-low p-4">
       <p role="status" className="text-body-md text-on-surface">
         {guidance.message}
       </p>
-      <div className="text-body-sm leading-relaxed text-on-surface-variant">
-        <p>
-          Speech analysis uses{" "}
-          <strong className="text-on-surface">Whisper Base</strong> (about 206
-          MB) and <strong className="text-on-surface">Qwen2.5 1.5B</strong>{" "}
-          (about 869 MB) to select moments and write titles. The first run
-          downloads these models; later runs reuse browser-cached files when
-          available.
+      <p className="text-body-sm text-on-surface-variant">
+        Every analysis includes speech, laughter, cheering and action sounds.
+        Sound analysis does not detect visual game events.
+      </p>
+      {!models ? (
+        <p role="status" className="text-body-sm text-on-surface-variant">
+          Checking saved models… No model downloads have started.
         </p>
-        <p className="mt-2">
-          Allow roughly 1.1 GB for model weights, plus runtime files and working
-          memory. Model loading and analysis speed depend on your device. No
-          paid AI API is used.
+      ) : needed.length ? (
+        <div className="text-body-sm text-on-surface-variant" role="status">
+          <p>
+            {needed.some((key) => models[key] === "unknown")
+              ? "Some saved models could not be verified."
+              : "Some models are not saved in this browser."}{" "}
+            Starting analysis downloads these if needed:{" "}
+            {needed.map((key) => MODEL_NAMES[key]).join(", ")}. Import a model
+            pack to reuse your downloads, or cancel to go back.
+          </p>
+        </div>
+      ) : (
+        <p role="status" className="text-body-sm text-on-surface-variant">
+          Required model files are already saved in this browser. They will be
+          loaded for analysis; browser runtime files may still be needed.
         </p>
-      </div>
-      <label className="flex items-start gap-3 rounded-lg bg-surface-container p-3 text-body-sm">
-        <input
-          type="checkbox"
-          checked={soundEvents}
-          onChange={(event) => setSoundEvents(event.target.checked)}
-          className="mt-0.5 size-4 shrink-0 accent-primary-container"
-        />
-        <span>
-          <strong className="block text-on-surface">
-            Also scan for laughter, cheering and action sounds
-          </strong>
-          <span className="text-on-surface-variant">
-            Adds AudioSet AST (about 91 MB) and a second full audio scan. Useful
-            for streams and gameplay reactions; slower than speech-only
-            analysis. It does not recognize visual game events.
-          </span>
-        </span>
-      </label>
+      )}
+      <details className="text-body-sm text-on-surface-variant">
+        <summary className="cursor-pointer font-bold">
+          Import or export saved models
+        </summary>
+        <div className="mt-3">
+          <ModelTransfer onBusy={setBusy} onChanged={refresh} />
+        </div>
+      </details>
       <GuestAllowance onReady={setGuestReady} />
-      <button
-        type="button"
-        disabled={guidance.blocked || !guestReady}
-        onClick={() => onStart({ soundEvents })}
-        className="self-start rounded-lg bg-primary-container px-5 py-2.5 text-label-md font-bold text-on-primary-fixed disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        Start local analysis
-      </button>
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={
+            guidance.blocked || !guestReady || !models || busy || checking
+          }
+          onClick={() => void start()}
+          className="self-start rounded-lg bg-primary-container px-5 py-2.5 text-label-md font-bold text-on-primary-fixed disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {checking
+            ? "Checking models…"
+            : needed.length
+              ? "Download missing models & start"
+              : "Start local analysis"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg px-5 py-2.5 text-label-md font-bold text-on-surface-variant hover:bg-surface-container"
+        >
+          Cancel
+        </button>
+      </div>
       <p className="text-body-sm text-on-surface-variant">
         Starting reserves one of your three video slots. Cancellation or
         analysis failure releases it.

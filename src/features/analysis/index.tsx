@@ -79,7 +79,12 @@ export function AnalysisView({
             </p>
           )}
           {awaitingAnalysis && source && onStart && (
-            <AnalysisSetup key={source.id} source={source} onStart={onStart} />
+            <AnalysisSetup
+              key={source.id}
+              source={source}
+              onStart={onStart}
+              onCancel={onCancel}
+            />
           )}
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
             <div className="min-w-0 lg:col-span-7">
@@ -99,11 +104,13 @@ export function AnalysisView({
               />
             </div>
           </div>
-          <AnalysisActions
-            complete={complete}
-            awaitingAnalysis={awaitingAnalysis}
-            onCancel={onCancel}
-          />
+          {!awaitingAnalysis && (
+            <AnalysisActions
+              complete={complete}
+              awaitingAnalysis={awaitingAnalysis}
+              onCancel={onCancel}
+            />
+          )}
         </div>
       </div>
     </section>

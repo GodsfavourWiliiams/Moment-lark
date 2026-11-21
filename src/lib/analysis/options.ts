@@ -1,5 +1,5 @@
-export type AnalysisOptions = { soundEvents: boolean };
-export const DEFAULT_ANALYSIS_OPTIONS: AnalysisOptions = { soundEvents: false };
+export type AnalysisOptions = { soundEvents: true };
+export const DEFAULT_ANALYSIS_OPTIONS: AnalysisOptions = { soundEvents: true };
 export const MIN_ANALYSIS_SECONDS = 6;
 
 export function sourceGuidance(seconds: number) {
@@ -24,7 +24,7 @@ export function sourceGuidance(seconds: number) {
   return {
     blocked: false,
     message:
-      "Review the analysis options before starting. Your video and transcript stay on this device.",
+      "Your video and transcript stay on this device. Analysis includes speech, laughter, cheering and action sounds.",
   };
 }
 

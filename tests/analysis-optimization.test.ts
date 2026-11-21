@@ -33,7 +33,7 @@ test("short videos warn, sub-six-second videos block, and long videos have no du
   assert.match(sourceGuidance(28).message, /already short/);
   assert.match(sourceGuidance(7200).message, /long recording/);
   assert.equal(sourceGuidance(7200).blocked, false);
-  assert.equal(DEFAULT_ANALYSIS_OPTIONS.soundEvents, false);
+  assert.equal(DEFAULT_ANALYSIS_OPTIONS.soundEvents, true);
   let state = studioReducer(initialStudioState, {
     type: "start-analysis",
     video: { name: "small.mp4", size: 100 },
@@ -47,7 +47,7 @@ test("short videos warn, sub-six-second videos block, and long videos have no du
   );
 });
 
-test("preflight names model/download costs and does not require a sound scan", () => {
+test("preflight checks local models before showing download consent and always includes sound analysis", () => {
   const html = renderToStaticMarkup(
     createElement(AnalysisView, {
       video: { name: "small.mp4", size: 1024 },
@@ -71,14 +71,13 @@ test("preflight names model/download costs and does not require a sound scan", (
   );
   for (const label of [
     "already short",
-    "Whisper Base",
-    "Qwen2.5 1.5B",
-    "AudioSet AST",
-    "869 MB",
+    "Checking saved models",
+    "Every analysis includes speech, laughter, cheering and action sounds",
+    "Import or export saved models",
     "Start local analysis",
   ])
     assert.ok(html.includes(label));
-  assert.doesNotMatch(html, /checked=""/);
+  assert.doesNotMatch(html, /type="checkbox"/);
   assert.doesNotMatch(html, /Proceed to Suggestions/);
 });
 
