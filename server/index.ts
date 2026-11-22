@@ -1,6 +1,7 @@
 import { analysisJobRoutes } from "./routes/analysis-jobs";
 import { Hono } from "hono";
 import { guestRoutes } from "./routes/guest";
+import { modelWeightRoutes } from "./routes/model-weights";
 import { maintainGuestRecords } from "./services/maintenance";
 import type { Bindings } from "./types";
 import type { ApiEnvironment } from "./types";
@@ -8,12 +9,14 @@ import type { ApiEnvironment } from "./types";
 const app = new Hono<ApiEnvironment>();
 
 app.use("/api/*", async (c, next) => {
-  c.header("Cache-Control", "no-store");
+  if (!c.req.path.startsWith("/api/model-weights/"))
+    c.header("Cache-Control", "no-store");
   c.header("X-Content-Type-Options", "nosniff");
   await next();
 });
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 app.route("/api/guest", guestRoutes);
+app.route("/api/model-weights", modelWeightRoutes());
 app.route("/api/analysis-jobs", analysisJobRoutes);
 app.all("/api/*", (c) =>
   c.json(

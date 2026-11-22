@@ -1,9 +1,7 @@
-import { MODEL_METADATA_ASSETS } from "./models";
+import { MODEL_METADATA_ASSETS, MODEL_WEIGHT_ASSETS } from "./models";
 
-/** Transformers.js custom cache: serve pinned speech metadata from our own
- * static assets; retain its normal cache keys and remote downloads for weights.
- * This does not proxy arbitrary URLs through our backend.
- */
+/** Serve model files from this origin while retaining portable, pinned
+ * Hugging Face URLs as the browser's cache keys and model-pack identifiers. */
 export async function createModelAssetCache(
   origin: string,
   fetchFile: typeof fetch = fetch,
@@ -11,8 +9,14 @@ export async function createModelAssetCache(
 ) {
   const metadata = new Map<string, string>(
     MODEL_METADATA_ASSETS.map((asset) => [
-      asset.remote,
+      new URL(`/api/model-weights${new URL(asset.remote).pathname}`, origin).href,
       new URL(asset.local, origin).href,
+    ]),
+  );
+  const upstreamKeys = new Map<string, string>(
+    MODEL_WEIGHT_ASSETS.map((asset) => [
+      new URL(asset.local, origin).href,
+      asset.remote,
     ]),
   );
   let browserCache: Cache | undefined;
@@ -37,14 +41,16 @@ export async function createModelAssetCache(
         return response;
       }
       try {
-        return await browserCache?.match(key);
+        const saved = await browserCache?.match(upstreamKeys.get(key) ?? key);
+        if (saved) return saved;
       } catch {
-        return undefined;
+        /* Restricted storage does not prevent library-managed downloads. */
       }
+      return undefined;
     },
     async put(key: string, response: Response): Promise<void> {
       try {
-        await browserCache?.put(key, response);
+        await browserCache?.put(upstreamKeys.get(key) ?? key, response);
       } catch {
         /* Storage limits must not prevent inference. */
       }

@@ -4,11 +4,14 @@ import test from "node:test";
 import { createModelAssetCache } from "../src/lib/analysis/model-assets";
 import {
   MODEL_METADATA_ASSETS,
+  MODEL_WEIGHT_ASSETS,
   SPEECH_MODEL,
 } from "../src/lib/analysis/models";
 
 const origin = "https://example.workers.dev";
 const remote = `https://huggingface.co/${SPEECH_MODEL.id}/resolve/${SPEECH_MODEL.revision}/`;
+const served = (url: string) =>
+  new URL(`/api/model-weights${new URL(url).pathname}`, origin).href;
 
 test("all pinned speech and sound JSON assets ship and are served from the site, without Hugging Face requests", async () => {
   const requested: string[] = [];
@@ -27,14 +30,14 @@ test("all pinned speech and sound JSON assets ship and are served from the site,
   }) as typeof fetch;
   const cache = await createModelAssetCache(origin, fetchFile);
   for (const asset of MODEL_METADATA_ASSETS) {
-    const response = await cache.match(asset.remote);
+    const response = await cache.match(served(asset.remote));
     assert.ok(response?.ok);
     assert.ok(await response.json());
   }
   assert.equal(requested.length, MODEL_METADATA_ASSETS.length);
 });
 
-test("model weights retain original cache keys and downloads are left to the model library", async () => {
+test("model weights use same-origin downloads and retain portable upstream cache keys", async () => {
   const url = remote + "onnx/encoder_model.onnx";
   const entries = new Map<string, Response>([[url, new Response("weights")]]);
   const storage = {
@@ -49,13 +52,14 @@ test("model weights retain original cache keys and downloads are left to the mod
     throw new Error("Unexpected network fetch");
   }) as typeof fetch;
   const cache = await createModelAssetCache(origin, noFetch, storage);
-  assert.equal(await (await cache.match(url))?.text(), "weights");
-  assert.equal(await cache.match(remote + "missing.onnx"), undefined);
-  await cache.put(remote + "new.onnx", new Response("new weights"));
-  assert.ok(entries.has(remote + "new.onnx"));
+  assert.equal(await (await cache.match(served(url)))?.text(), "weights");
+  assert.equal(await cache.match(served(remote + "missing.onnx")), undefined);
+  const sound = MODEL_WEIGHT_ASSETS[2];
+  await cache.put(served(sound.remote), new Response("new weights"));
+  assert.ok(entries.has(sound.remote));
   assert.equal(
     await cache.match(
-      remote.replace(SPEECH_MODEL.revision, "main") + "tokenizer.json",
+      served(remote.replace(SPEECH_MODEL.revision, "main") + "tokenizer.json"),
     ),
     undefined,
   );
@@ -74,8 +78,8 @@ test("blocked cache storage still allows same-origin metadata and missing assets
     blocked,
   );
   await assert.rejects(
-    cache.match(remote + "tokenizer.json"),
+    cache.match(served(remote + "tokenizer.json")),
     /missing from this deployment/,
   );
-  assert.equal(await cache.match(remote + "onnx/model.onnx"), undefined);
+  assert.equal(await cache.match(served(remote + "onnx/model.onnx")), undefined);
 });

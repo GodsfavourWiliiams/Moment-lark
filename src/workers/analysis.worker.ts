@@ -40,6 +40,8 @@ async function createSpeech(
   progress_callback?: (event: ModelProgress) => void,
 ) {
   const { pipeline, env } = await import("@huggingface/transformers");
+  env.remoteHost = self.location.origin;
+  env.remotePathTemplate = "/api/model-weights/{model}/resolve/{revision}/";
   env.allowLocalModels = cachedOnly;
   env.allowRemoteModels = !cachedOnly;
   env.customCache = await createModelAssetCache(self.location.origin);
@@ -115,10 +117,10 @@ async function analyze({ file, source, options }: AnalysisRequest) {
       if (
         ["speechLoad", "soundLoad", "rankerLoad"].includes(name) &&
         error instanceof Error &&
-        /failed to fetch|networkerror|load failed/i.test(error.message)
+        /failed to fetch|networkerror|load failed|bad gateway/i.test(error.message)
       ) {
         throw new Error(
-          "The browser could not download an AI model file. Check your connection and whether this browser or network blocks Hugging Face, then retry. Already saved model files will be reused when available.",
+          "An AI model file could not be downloaded. Please retry after checking your connection. Saved model files will be reused when available.",
         );
       }
       throw error;
@@ -158,6 +160,8 @@ async function analyze({ file, source, options }: AnalysisRequest) {
         "Local AI needs WebGPU. Use a current desktop Chrome or Edge browser with hardware acceleration enabled.",
       );
     const { pipeline, env } = await import("@huggingface/transformers");
+    env.remoteHost = self.location.origin;
+    env.remotePathTemplate = "/api/model-weights/{model}/resolve/{revision}/";
     env.allowLocalModels = false;
     env.allowRemoteModels = true;
     env.customCache = await createModelAssetCache(self.location.origin);

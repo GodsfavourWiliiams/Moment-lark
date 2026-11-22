@@ -28,8 +28,28 @@ export const MODEL_METADATA_ASSETS = [
     local: `/models/audioset/${SOUND_MODEL.revision}/${file}`,
   })),
 ];
+export const MODEL_WEIGHT_ASSETS = [
+  {
+    remote: `https://huggingface.co/${SPEECH_MODEL.id}/resolve/${SPEECH_MODEL.revision}/onnx/encoder_model.onnx`,
+    local: `/api/model-weights/${SPEECH_MODEL.id}/resolve/${SPEECH_MODEL.revision}/onnx/encoder_model.onnx`,
+  },
+  {
+    remote: `https://huggingface.co/${SPEECH_MODEL.id}/resolve/${SPEECH_MODEL.revision}/onnx/decoder_model_merged_q4.onnx`,
+    local: `/api/model-weights/${SPEECH_MODEL.id}/resolve/${SPEECH_MODEL.revision}/onnx/decoder_model_merged_q4.onnx`,
+  },
+  {
+    remote: `https://huggingface.co/${SOUND_MODEL.id}/resolve/${SOUND_MODEL.revision}/onnx/model_quantized.onnx`,
+    local: `/api/model-weights/${SOUND_MODEL.id}/resolve/${SOUND_MODEL.revision}/onnx/model_quantized.onnx`,
+  },
+] as const;
 export const RANK_MODEL = "Qwen2.5-1.5B-Instruct-q4f32_1-MLC";
 export const RANK_REVISION = "a822ee410075710c9673005eafa017b90136b85d";
-export const RANK_MODEL_URL = `https://huggingface.co/mlc-ai/${RANK_MODEL}/resolve/${RANK_REVISION}/`;
+export const RANK_MODEL_PROXY_PREFIX = "/api/model-weights/ranking/";
+export const RANK_MODEL_URL = new URL(
+  RANK_MODEL_PROXY_PREFIX,
+  (globalThis as { location?: { origin: string } }).location?.origin ??
+    "http://localhost",
+).href;
+export const RANK_MODEL_UPSTREAM_URL = `https://huggingface.co/mlc-ai/${RANK_MODEL}/resolve/${RANK_REVISION}/`;
 export const RANK_LIBRARY_URL =
   "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_87/base/Qwen2-1.5B-Instruct-q4f32_1_cs1k-webgpu.wasm";
